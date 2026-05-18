@@ -4,7 +4,6 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Casa Pura Vida 14 — Beheerportaal</title>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
 :root {
@@ -549,8 +548,7 @@ tr.cancelled td { opacity: 0.45; }
 
 <script>
 // ─── SUPABASE CLIENT ────────────────────────────────────────────────────────
-const { createClient } = supabase;
-const sb = createClient('https://qbhcrueepyentwsxapqy.supabase.co', 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFiaGNydWVlcHllbnR3c3hhcHF5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzkwOTg0OTUsImV4cCI6MjA5NDY3NDQ5NX0.Xbbc9vhxQifGD2kh74HhCQBwRfHE73AzrunAHTpXvhU');
+let sb = null;
 let currentUser = null;
 let currentProfile = null;
 
@@ -1476,6 +1474,162 @@ function setView(v, el) {
 
 
 
+
+// ─── AUTH & INIT ─────────────────────────────────────────────────────────────
+async function init() {
+  sb = supabase.createClient(
+    'https://qbhcrueepyentwsxapqy.supabase.co',
+    'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFiaGNydWVlcHllbnR3c3hhcHF5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzkwOTg0OTUsImV4cCI6MjA5NDY3NDQ5NX0.Xbbc9vhxQifGD2kh74HhCQBwRfHE73AzrunAHTpXvhU'
+  );
+
+  sb.auth.onAuthStateChange(async (event, session) => {
+    if (event === 'SIGNED_IN' && session) {
+      currentUser = session.user;
+      const { data: profile } = await sb.from('profiles').select('*').eq('id', currentUser.id).single();
+      currentProfile = profile;
+      await loadStorage();
+      showApp();
+    } else if (event === 'SIGNED_OUT') {
+      currentUser = null;
+      currentProfile = null;
+      showAuthScreen();
+    }
+  });
+
+  const { data: { session } } = await sb.auth.getSession();
+  if (!session) {
+    showAuthScreen();
+    return;
+  }
+  currentUser = session.user;
+  const { data: profile } = await sb.from('profiles').select('*').eq('id', currentUser.id).single();
+  currentProfile = profile;
+
+  // Check if MFA is required
+  const { data: aal } = await sb.auth.mfa.getAuthenticatorAssuranceLevel();
+  if (aal?.nextLevel === 'aal2' && aal?.currentLevel !== 'aal2') {
+    const { data: factors } = await sb.auth.mfa.listFactors();
+    const totp = factors?.totp?.[0];
+    if (totp) { totpFactorId = totp.id; showAuthScreen(); showTotpScreen(); return; }
+  }
+
+  await loadStorage();
+  showApp();
+}
+
+function showApp() {
+  document.getElementById('auth-screen').style.display = 'none';
+  document.getElementById('app-root').style.display = 'flex';
+  document.getElementById('kh-email-input').value = settings.keyholderEmail;
+  document.getElementById('sender-name').value = settings.senderName;
+  document.getElementById('gift-threshold').value = settings.giftThreshold;
+  document.getElementById('days-before').value = settings.daysBefore;
+  document.getElementById('kh-email-display').textContent = settings.keyholderEmail;
+  const nameEl = document.getElementById('user-name-display');
+  if (nameEl) nameEl.textContent = currentProfile?.full_name || currentUser?.email || '';
+  render();
+  initMonthPricesGrid();
+  initAvailDates();
+}
+
+function showAuthScreen() {
+  document.getElementById('auth-screen').style.display = 'flex';
+  document.getElementById('app-root').style.display = 'none';
+}
+
+function showTotpScreen() {
+  document.getElementById('auth-form').style.display = 'none';
+  document.getElementById('totp-form').style.display = 'block';
+}
+
+let authMode = 'login';
+let totpFactorId = null;
+
+async function handleLogin() {
+  const email = document.getElementById('auth-email').value.trim();
+  const password = document.getElementById('auth-password').value;
+  const errEl = document.getElementById('auth-error');
+  errEl.textContent = '';
+  if (!email || !password) { errEl.textContent = 'Vul e-mail en wachtwoord in.'; return; }
+  const btn = document.getElementById('auth-btn');
+  btn.textContent = 'Bezig...'; btn.disabled = true;
+  try {
+    const { data, error } = await sb.auth.signInWithPassword({ email, password });
+    if (error) {
+      errEl.textContent = error.message === 'Invalid login credentials'
+        ? 'Onjuist e-mailadres of wachtwoord.' : error.message;
+      return;
+    }
+    // Check if MFA required after login
+    const { data: aal } = await sb.auth.mfa.getAuthenticatorAssuranceLevel();
+    if (aal?.nextLevel === 'aal2' && aal?.currentLevel !== 'aal2') {
+      const { data: factors } = await sb.auth.mfa.listFactors();
+      const totp = factors?.totp?.[0];
+      if (totp) { totpFactorId = totp.id; showTotpScreen(); return; }
+    }
+  } catch(e) {
+    errEl.textContent = 'Er ging iets mis. Probeer opnieuw.';
+  } finally {
+    btn.textContent = 'Inloggen'; btn.disabled = false;
+  }
+}
+
+async function handleTotpVerify() {
+  const code = document.getElementById('totp-code').value.trim();
+  const errEl = document.getElementById('totp-error');
+  errEl.textContent = '';
+  if (!code || code.length !== 6) { errEl.textContent = 'Voer een 6-cijferige code in.'; return; }
+  const btn = document.getElementById('totp-btn');
+  btn.textContent = 'Verifiëren...'; btn.disabled = true;
+  try {
+    const { data: challengeData, error: ce } = await sb.auth.mfa.challenge({ factorId: totpFactorId });
+    if (ce) { errEl.textContent = ce.message; return; }
+    const { error } = await sb.auth.mfa.verify({ factorId: totpFactorId, challengeId: challengeData.id, code });
+    if (error) { errEl.textContent = 'Ongeldige code. Probeer opnieuw.'; return; }
+  } catch(e) {
+    errEl.textContent = 'Er ging iets mis.';
+  } finally {
+    btn.textContent = 'Verifiëren'; btn.disabled = false;
+  }
+}
+
+async function handleLogout() {
+  await sb.auth.signOut();
+}
+
+async function loadUsers() {
+  const { data } = await sb.from('profiles').select('*').order('created_at');
+  const list = document.getElementById('users-list');
+  if (!list || !data) return;
+  list.innerHTML = data.map(u => `
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--border)">
+      <div>
+        <div style="font-size:13px;font-weight:500">${u.full_name||u.email}</div>
+        <div style="font-size:11px;color:var(--text-muted)">${u.email} · ${u.role}</div>
+      </div>
+      ${currentProfile?.role==='owner' && u.id !== currentUser.id
+        ? `<button class="btn-sm danger" onclick="removeUser('${u.id}')">Verwijderen</button>`
+        : `<span class="tag ${u.role==='owner'?'tag-key':'tag-gast'}">${u.role}</span>`}
+    </div>`).join('');
+}
+
+async function inviteUser() {
+  const email = document.getElementById('invite-email').value.trim();
+  if (!email) { alert('Vul een e-mailadres in.'); return; }
+  // Create user via Supabase (owner manually sets password, user sets own via reset)
+  const { error } = await sb.auth.resetPasswordForEmail(email, {
+    redirectTo: window.location.origin
+  });
+  if (error) alert('Fout: ' + error.message);
+  else { alert(`Uitnodigingsmail verstuurd naar ${email}`); document.getElementById('invite-email').value=''; }
+}
+
+async function removeUser(id) {
+  if (!confirm('Weet je zeker dat je deze beheerder wilt verwijderen?')) return;
+  await sb.from('profiles').delete().eq('id', id);
+  loadUsers();
+}
+
 async function setupTotp() {
   const area = document.getElementById('totp-setup-area');
   area.innerHTML = '<div style="font-size:12px;color:var(--text-muted)">Bezig met laden...</div>';
@@ -1487,7 +1641,7 @@ async function setupTotp() {
   area.innerHTML = `
     <div style="margin-bottom:12px">
       <img src="${qr}" style="width:180px;height:180px;border:1px solid var(--border);border-radius:8px;display:block;margin-bottom:8px;">
-      <div style="font-size:11px;color:var(--text-muted)">Of voer deze code handmatig in: <span style="font-family:var(--mono);font-weight:600;color:var(--text)">${secret}</span></div>
+      <div style="font-size:11px;color:var(--text-muted)">Of voer deze code handmatig in:<br><span style="font-family:var(--mono);font-weight:600;color:var(--text)">${secret}</span></div>
     </div>
     <div style="margin-bottom:10px">
       <label style="font-size:11px;font-weight:600;color:var(--text-faint);display:block;margin-bottom:4px;">Verificatiecode (6 cijfers)</label>
@@ -1863,16 +2017,9 @@ function copyBeschikbaarheid() {
 }
 
 // ─── INIT ─────────────────────────────────────────────────────────────────────
-loadStorage();
-loadMonthPrices();
-document.getElementById('kh-email-input').value = settings.keyholderEmail;
-document.getElementById('sender-name').value = settings.senderName;
-document.getElementById('gift-threshold').value = settings.giftThreshold;
-document.getElementById('days-before').value = settings.daysBefore;
-document.getElementById('kh-email-display').textContent = settings.keyholderEmail;
-render();
-initMonthPricesGrid();
-initAvailDates();
+// Wait for Supabase CDN to load, then init
+window.__cpvInit = function() { init(); };
 </script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2" onload="window.__cpvInit()"></script>
 </body>
 </html>
