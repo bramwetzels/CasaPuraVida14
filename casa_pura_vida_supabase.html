@@ -1,0 +1,1878 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Casa Pura Vida 14 — Beheerportaal</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root {
+  --green: #7D6B52;
+  --green-light: #EDE7DE;
+  --green-dark: #4A3928;
+  --blue: #378ADD;
+  --blue-light: #E6F1FB;
+  --red: #C0392B;
+  --red-light: #FAEAE8;
+  --amber: #B07D3A;
+  --amber-light: #F5ECD9;
+  --gray-50: #F5F2EE;
+  --gray-100: #EDE7DE;
+  --gray-200: #DDD6CB;
+  --gray-300: #C8BFB2;
+  --gray-500: #8A8178;
+  --gray-700: #3E3730;
+  --gray-900: #1A1714;
+  --text: #1A1714;
+  --text-muted: #5C5650;
+  --text-faint: #9A9188;
+  --bg: #F5F2EE;
+  --bg-card: #FFFFFF;
+  --border: rgba(0,0,0,0.09);
+  --border-strong: rgba(0,0,0,0.16);
+  --sidebar-w: 220px;
+  --font: 'DM Sans', sans-serif;
+  --mono: 'DM Mono', monospace;
+  --radius: 10px;
+  --radius-lg: 14px;
+  --shadow: 0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04);
+  --shadow-md: 0 4px 12px rgba(0,0,0,0.08), 0 2px 4px rgba(0,0,0,0.04);
+  --sidebar-bg: #CBC4BA;
+  --sidebar-text: #FFFFFF;
+  --sidebar-muted: rgba(255,255,255,0.88);
+  --sidebar-border: rgba(255,255,255,0.25);
+  --sidebar-active-bg: rgba(0,0,0,0.15);
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { height: 100%; font-family: var(--font); background: var(--bg); color: var(--text); font-size: 14px; line-height: 1.5; }
+
+/* LAYOUT */
+.app { display: flex; height: 100vh; overflow: hidden; }
+.sidebar { width: var(--sidebar-w); flex-shrink: 0; background: var(--sidebar-bg); border-right: none; display: flex; flex-direction: column; }
+.main { flex: 1; overflow-y: auto; display: flex; flex-direction: column; position: relative; }
+
+/* SIDEBAR */
+.sidebar-logo { padding: 16px 16px 14px; border-bottom: 1px solid var(--sidebar-border); }
+.logo-img { width: 100%; max-width: 168px; height: auto; display: block; margin: 0 auto; }
+.logo-name { font-size: 13px; font-weight: 600; color: var(--sidebar-text); letter-spacing: -0.01em; display: none; }
+.logo-sub { font-size: 11px; color: var(--sidebar-muted); display: none; }
+.sidebar-nav { padding: 12px 10px; flex: 1; }
+.nav-item { display: flex; align-items: center; gap: 9px; padding: 8px 10px; border-radius: 8px; font-size: 13px; color: var(--sidebar-muted); cursor: pointer; transition: all 0.15s; margin-bottom: 2px; }
+.nav-item:hover { background: var(--sidebar-active-bg); color: var(--sidebar-text); }
+.nav-item.active { background: var(--sidebar-active-bg); color: var(--sidebar-text); font-weight: 600; }
+.nav-item svg { width: 15px; height: 15px; flex-shrink: 0; opacity: 0.8; }
+.nav-badge { margin-left: auto; background: var(--red); color: white; font-size: 10px; font-weight: 600; padding: 1px 6px; border-radius: 99px; }
+.sidebar-footer { padding: 12px 10px; border-top: 1px solid var(--sidebar-border); }
+.keyholder-info { padding: 10px; background: var(--sidebar-active-bg); border-radius: 8px; font-size: 11px; color: var(--sidebar-muted); }
+.keyholder-info strong { display: block; font-size: 11px; font-weight: 600; color: var(--sidebar-text); margin-bottom: 2px; }
+
+/* TOPBAR */
+.topbar { background: var(--bg-card); border-bottom: 1px solid var(--border); padding: 14px 24px; display: flex; align-items: center; justify-content: space-between; flex-shrink: 0; position: sticky; top: 0; z-index: 5; }
+.topbar-left { display: flex; align-items: center; gap: 16px; }
+.topbar-title { font-size: 15px; font-weight: 600; color: var(--text); letter-spacing: -0.01em; }
+.breadcrumb { font-size: 12px; color: var(--text-faint); }
+.topbar-right { display: flex; align-items: center; gap: 10px; }
+.btn { padding: 7px 14px; border-radius: 8px; font-size: 12px; font-weight: 500; cursor: pointer; border: 1px solid var(--border-strong); background: var(--bg-card); color: var(--text); font-family: var(--font); transition: all 0.15s; }
+.btn:hover { background: var(--gray-100); }
+.btn-primary { background: var(--green); color: white; border-color: var(--green); }
+.btn-primary:hover { background: var(--green-dark); }
+.btn-danger { background: var(--red); color: white; border-color: var(--red); }
+.badge-alert { background: var(--red-light); color: #A32D2D; font-size: 11px; font-weight: 600; padding: 4px 10px; border-radius: 99px; cursor: pointer; }
+
+/* CONTENT */
+.content { padding: 24px; flex: 1; }
+
+/* METRICS */
+.metrics { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 24px; }
+.metric-card { background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 16px 18px; }
+.metric-label { font-size: 11px; font-weight: 500; color: var(--text-faint); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 6px; }
+.metric-value { font-size: 24px; font-weight: 600; color: var(--text); letter-spacing: -0.02em; line-height: 1; margin-bottom: 4px; }
+.metric-sub { font-size: 11px; color: var(--text-muted); }
+.metric-card.alert .metric-value { color: var(--red); }
+
+/* WERKVOORRAAD */
+.section { background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius-lg); margin-bottom: 20px; overflow: hidden; }
+.section-header { padding: 14px 18px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; }
+.section-title { font-size: 13px; font-weight: 600; color: var(--text); }
+.legend { display: flex; gap: 12px; }
+.legend-item { display: flex; align-items: center; gap: 5px; font-size: 11px; color: var(--text-muted); }
+.legend-dot { width: 7px; height: 7px; border-radius: 50%; }
+
+.wl-item { display: flex; align-items: flex-start; gap: 14px; padding: 14px 18px; border-bottom: 1px solid var(--border); }
+.wl-item:last-child { border-bottom: none; }
+.wl-stripe { width: 3px; border-radius: 99px; flex-shrink: 0; align-self: stretch; min-height: 20px; }
+.wl-body { flex: 1; }
+.wl-title { font-size: 13px; font-weight: 600; color: var(--text); margin-bottom: 3px; }
+.wl-meta { font-size: 11px; color: var(--text-muted); margin-bottom: 8px; }
+.wl-actions { display: flex; gap: 6px; flex-wrap: wrap; }
+.tag { font-size: 10px; font-weight: 500; padding: 3px 8px; border-radius: 99px; }
+.tag-gast { background: var(--green-light); color: var(--green-dark); }
+.tag-key { background: var(--blue-light); color: #185FA5; }
+.tag-cancel { background: var(--red-light); color: #A32D2D; }
+.btn-sm { padding: 4px 10px; font-size: 11px; border-radius: 6px; cursor: pointer; border: 1px solid var(--border-strong); background: var(--bg-card); color: var(--text); font-family: var(--font); transition: all 0.15s; font-weight: 500; }
+.btn-sm:hover { background: var(--gray-100); }
+.btn-sm.primary { background: var(--green); color: white; border-color: var(--green); }
+.btn-sm.primary:hover { background: var(--green-dark); }
+.btn-sm.danger { background: var(--red-light); color: #A32D2D; border-color: #F7C1C1; }
+.btn-sm.sent { background: var(--gray-100); color: var(--text-faint); border-color: var(--border); text-decoration: line-through; cursor: default; }
+
+/* TABS */
+.tab-row { display: flex; align-items: center; justify-content: space-between; padding: 0 18px; border-bottom: 1px solid var(--border); }
+.tabs { display: flex; gap: 0; }
+.tab { padding: 12px 14px; font-size: 12px; font-weight: 500; color: var(--text-muted); cursor: pointer; border-bottom: 2px solid transparent; margin-bottom: -1px; transition: all 0.15s; }
+.tab.active { color: var(--green); border-bottom-color: var(--green); }
+.tab-actions { display: flex; gap: 8px; align-items: center; }
+.filter-chips { display: flex; gap: 4px; }
+.chip { font-size: 11px; padding: 4px 10px; border-radius: 99px; border: 1px solid var(--border-strong); color: var(--text-muted); cursor: pointer; transition: all 0.15s; background: var(--bg-card); }
+.chip.active { background: var(--gray-100); color: var(--text); font-weight: 500; border-color: var(--gray-300); }
+.view-toggle { display: flex; border: 1px solid var(--border-strong); border-radius: 8px; overflow: hidden; }
+.view-btn { padding: 5px 10px; font-size: 11px; font-weight: 500; color: var(--text-muted); cursor: pointer; background: var(--bg-card); border: none; font-family: var(--font); transition: all 0.15s; }
+.view-btn.active { background: var(--gray-100); color: var(--text); }
+
+/* TABLE */
+.table-wrap { overflow-x: auto; }
+table { width: 100%; border-collapse: collapse; font-size: 12px; }
+th { padding: 10px 14px; text-align: left; font-size: 10px; font-weight: 600; color: var(--text-faint); text-transform: uppercase; letter-spacing: 0.05em; border-bottom: 1px solid var(--border); white-space: nowrap; background: var(--gray-50); }
+td { padding: 11px 14px; color: var(--text); border-bottom: 1px solid var(--border); vertical-align: middle; }
+tr:last-child td { border-bottom: none; }
+tr.clickable:hover td { background: var(--gray-50); cursor: pointer; }
+tr.cancelled td { opacity: 0.45; }
+.guest-name { font-weight: 500; font-size: 13px; }
+.src-badge { font-size: 10px; font-weight: 600; padding: 2px 8px; border-radius: 99px; white-space: nowrap; }
+.src-airbnb { background: #FAECE7; color: #993C1D; }
+.src-booking { background: var(--blue-light); color: #185FA5; }
+.src-website { background: var(--green-light); color: var(--green-dark); }
+.src-familie { background: #FBEAF0; color: #993556; }
+.src-eigen { background: var(--gray-100); color: var(--gray-700); }
+.src-vrbo { background: var(--amber-light); color: #854F0B; }
+.src-onbekend { background: var(--gray-100); color: var(--gray-500); }
+.status-badge { font-size: 10px; font-weight: 600; padding: 2px 8px; border-radius: 99px; white-space: nowrap; }
+.st-bevestigd { background: var(--green-light); color: var(--green-dark); }
+.st-optie { background: var(--amber-light); color: #854F0B; }
+.st-geannuleerd { background: var(--red-light); color: #A32D2D; }
+.st-eigen { background: var(--gray-100); color: var(--gray-700); }
+.price-cell { font-family: var(--mono); font-size: 12px; font-weight: 500; }
+.action-needed { color: var(--red); font-weight: 600; font-size: 10px; }
+.nights-badge { background: var(--gray-100); color: var(--text-muted); font-size: 11px; font-weight: 500; padding: 2px 7px; border-radius: 99px; }
+.welcome-yes { color: var(--green); font-size: 12px; }
+.welcome-no { color: var(--text-faint); font-size: 12px; }
+
+/* DETAIL PANEL */
+.panel-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.2); z-index: 20; opacity: 0; pointer-events: none; transition: opacity 0.2s; }
+.panel-overlay.open { opacity: 1; pointer-events: all; }
+.detail-panel { position: fixed; right: 0; top: 0; bottom: 0; width: 440px; background: var(--bg-card); border-left: 1px solid var(--border); z-index: 21; transform: translateX(100%); transition: transform 0.25s cubic-bezier(0.4,0,0.2,1); overflow-y: auto; display: flex; flex-direction: column; }
+.detail-panel.open { transform: translateX(0); }
+.panel-header { padding: 18px 20px; border-bottom: 1px solid var(--border); display: flex; align-items: flex-start; justify-content: space-between; flex-shrink: 0; position: sticky; top: 0; background: var(--bg-card); z-index: 1; }
+.panel-guest { font-size: 16px; font-weight: 600; letter-spacing: -0.01em; margin-bottom: 4px; }
+.panel-dates { font-size: 12px; color: var(--text-muted); }
+.panel-close { width: 28px; height: 28px; border-radius: 7px; background: var(--gray-100); border: none; cursor: pointer; display: flex; align-items: center; justify-content: center; color: var(--text-muted); font-size: 16px; }
+.panel-close:hover { background: var(--gray-200); }
+.panel-body { padding: 16px 20px; flex: 1; }
+.panel-section { margin-bottom: 20px; }
+.panel-section-title { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.07em; color: var(--text-faint); margin-bottom: 10px; }
+.field-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.field { }
+.field-label { font-size: 10px; color: var(--text-faint); font-weight: 500; text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 3px; }
+.field-val { font-size: 13px; color: var(--text); font-weight: 500; }
+.field-val.editable { padding: 5px 8px; border: 1px solid var(--border-strong); border-radius: 6px; background: var(--bg-card); font-family: var(--mono); font-size: 12px; width: 100%; color: var(--text); cursor: text; }
+.field-val.editable:focus { outline: none; border-color: var(--green); box-shadow: 0 0 0 3px rgba(29,158,117,0.1); }
+.fin-table { width: 100%; font-size: 12px; border-collapse: collapse; }
+.fin-table td { padding: 6px 0; border-bottom: 1px solid var(--border); }
+.fin-table tr:last-child td { border-bottom: none; font-weight: 600; }
+.fin-table .label { color: var(--text-muted); }
+.fin-table .amount { text-align: right; font-family: var(--mono); }
+.fin-table .amount.negative { color: var(--red); }
+.fin-table .amount.total { color: var(--green); }
+.source-select { padding: 5px 8px; border: 1px solid var(--border-strong); border-radius: 6px; font-size: 12px; font-family: var(--font); color: var(--text); background: var(--bg-card); width: 100%; cursor: pointer; }
+.source-select:focus { outline: none; border-color: var(--green); }
+.panel-actions { padding: 14px 20px; border-top: 1px solid var(--border); display: flex; gap: 8px; flex-shrink: 0; position: sticky; bottom: 0; background: var(--bg-card); }
+.incheck-val { font-size: 11px; }
+.welcome-gift { display: inline-flex; align-items: center; gap: 4px; font-size: 12px; font-weight: 500; }
+.welcome-gift.yes { color: var(--green); }
+.welcome-gift.no { color: var(--text-faint); }
+
+.sent-cell { position: relative; display: inline-block; cursor: default; }
+.sent-cell .sent-tooltip {
+  visibility: hidden; opacity: 0;
+  position: absolute; bottom: 125%; left: 50%; transform: translateX(-50%);
+  background: var(--gray-900); color: #fff;
+  font-size: 11px; font-weight: 400; white-space: nowrap;
+  padding: 4px 8px; border-radius: 6px;
+  pointer-events: none;
+  transition: opacity 0.15s;
+  z-index: 99;
+}
+.sent-cell .sent-tooltip::after {
+  content: ''; position: absolute; top: 100%; left: 50%; transform: translateX(-50%);
+  border: 4px solid transparent; border-top-color: var(--gray-900);
+}
+.sent-cell:hover .sent-tooltip { visibility: visible; opacity: 1; }
+.sent-indicator { display: inline-flex; align-items: center; gap: 4px; font-size: 11px; color: var(--green); font-weight: 500; }
+
+/* KALENDER */
+.calendar-wrap { padding: 18px; }
+.cal-nav { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; }
+.cal-month { font-size: 15px; font-weight: 600; }
+.cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; }
+.cal-day-header { text-align: center; font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; color: var(--text-faint); padding: 6px 0; }
+.cal-day { min-height: 64px; background: var(--bg-card); border: 1px solid var(--border); border-radius: 6px; padding: 4px 6px; position: relative; cursor: pointer; transition: background 0.1s; }
+.cal-day:hover { background: var(--gray-50); }
+.cal-day.empty { background: var(--gray-50); border-color: transparent; cursor: default; }
+.cal-day.today { border-color: var(--green); }
+.cal-day-num { font-size: 11px; font-weight: 500; color: var(--text-muted); margin-bottom: 2px; }
+.cal-day.today .cal-day-num { color: var(--green); font-weight: 700; }
+.cal-booking { font-size: 9px; font-weight: 600; padding: 2px 4px; border-radius: 3px; margin-bottom: 1px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cal-booking.start { border-radius: 3px 0 0 3px; }
+.cal-booking.middle { border-radius: 0; }
+.cal-booking.end { border-radius: 0 3px 3px 0; }
+.cal-airbnb { background: #F5C4B3; color: #993C1D; }
+.cal-booking-com { background: #B5D4F4; color: #185FA5; }
+.cal-website { background: #9FE1CB; color: var(--green-dark); }
+.cal-familie { background: #F4C0D1; color: #993556; }
+.cal-eigen { background: var(--gray-200); color: var(--gray-700); }
+.empty-state { text-align: center; padding: 40px; color: var(--text-faint); font-size: 13px; }
+.upload-area { border: 2px dashed var(--border-strong); border-radius: var(--radius-lg); padding: 32px; text-align: center; cursor: pointer; transition: all 0.15s; margin-bottom: 20px; }
+.upload-area:hover { border-color: var(--green); background: var(--green-light); }
+.upload-area-text { font-size: 13px; font-weight: 500; color: var(--text-muted); margin-bottom: 4px; }
+.upload-area-sub { font-size: 11px; color: var(--text-faint); }
+.upload-input { display: none; }
+.info-banner { background: var(--blue-light); border: 1px solid #B5D4F4; border-radius: var(--radius); padding: 10px 14px; font-size: 12px; color: #185FA5; margin-bottom: 16px; display: flex; align-items: flex-start; gap: 8px; }
+.draft-box { background: var(--gray-50); border: 1px solid var(--border); border-radius: 8px; padding: 12px; font-size: 12px; color: var(--text-muted); line-height: 1.7; white-space: pre-wrap; margin-top: 8px; font-family: var(--mono); }
+.draft-subject { font-size: 11px; font-weight: 600; color: var(--text-faint); text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 4px; }
+.link-input { width: 100%; padding: 6px 8px; border: 1px solid var(--border-strong); border-radius: 6px; font-size: 11px; font-family: var(--mono); color: var(--text); background: var(--bg-card); margin-top: 4px; }
+.link-input:focus { outline: none; border-color: var(--green); }
+.divider { border: none; border-top: 1px solid var(--border); margin: 16px 0; }
+</style>
+</head>
+<body>
+
+<!-- AUTH SCREEN -->
+<div id="auth-screen" style="display:flex;position:fixed;inset:0;background:var(--bg);z-index:100;flex-direction:column;align-items:center;justify-content:center;">
+  <div style="width:100%;max-width:400px;padding:24px;">
+    <div style="text-align:center;margin-bottom:32px;">
+      <div style="font-size:22px;font-weight:700;color:var(--text);letter-spacing:-0.02em;">Casa Pura Vida 14</div>
+      <div style="font-size:13px;color:var(--text-muted);margin-top:4px;">Beheerportaal</div>
+    </div>
+    <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius-lg);padding:24px;">
+      <div id="auth-form">
+        <div style="margin-bottom:14px;">
+          <label style="font-size:11px;font-weight:600;color:var(--text-faint);text-transform:uppercase;letter-spacing:.05em;display:block;margin-bottom:5px;">E-mailadres</label>
+          <input type="email" id="auth-email" placeholder="naam@email.com" style="width:100%;padding:9px 12px;border:1px solid var(--border-strong);border-radius:8px;font-size:13px;font-family:var(--font);color:var(--text);background:var(--bg-card);" onkeydown="if(event.key==='Enter')document.getElementById('auth-password').focus()">
+        </div>
+        <div style="margin-bottom:20px;">
+          <label style="font-size:11px;font-weight:600;color:var(--text-faint);text-transform:uppercase;letter-spacing:.05em;display:block;margin-bottom:5px;">Wachtwoord</label>
+          <input type="password" id="auth-password" placeholder="••••••••" style="width:100%;padding:9px 12px;border:1px solid var(--border-strong);border-radius:8px;font-size:13px;font-family:var(--font);color:var(--text);background:var(--bg-card);" onkeydown="if(event.key==='Enter')handleLogin()">
+        </div>
+        <div id="auth-error" style="color:var(--red);font-size:12px;margin-bottom:12px;min-height:18px;"></div>
+        <button id="auth-btn" onclick="handleLogin()" style="width:100%;padding:10px;background:var(--green);color:white;border:none;border-radius:8px;font-size:13px;font-weight:600;font-family:var(--font);cursor:pointer;">Inloggen</button>
+      </div>
+      <div id="totp-form" style="display:none">
+        <div style="text-align:center;margin-bottom:16px;">
+          <div style="font-size:24px;margin-bottom:8px;">🔐</div>
+          <div style="font-size:14px;font-weight:600;color:var(--text)">Twee-factor verificatie</div>
+          <div style="font-size:12px;color:var(--text-muted);margin-top:4px;">Voer de 6-cijferige code in uit je authenticator-app</div>
+        </div>
+        <input type="text" id="totp-code" placeholder="123456" maxlength="6" inputmode="numeric"
+          style="width:100%;padding:12px;border:1px solid var(--border-strong);border-radius:8px;font-size:20px;font-family:var(--mono);text-align:center;letter-spacing:6px;color:var(--text);background:var(--bg-card);margin-bottom:12px;"
+          onkeydown="if(event.key==='Enter')handleTotpVerify()">
+        <div id="totp-error" style="color:var(--red);font-size:12px;margin-bottom:12px;min-height:18px;text-align:center;"></div>
+        <button id="totp-btn" onclick="handleTotpVerify()" style="width:100%;padding:10px;background:var(--green);color:white;border:none;border-radius:8px;font-size:13px;font-weight:600;font-family:var(--font);cursor:pointer;">Verifiëren</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="app" id="app-root" style="display:none">
+  <!-- SIDEBAR -->
+  <div class="sidebar">
+    <div class="sidebar-logo">
+      <img class="logo-img" src="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHhtbG5zOnhsaW5rPSJodHRwOi8vd3d3LnczLm9yZy8xOTk5L3hsaW5rIiB3aWR0aD0iMjAwMCIgem9vbUFuZFBhbj0ibWFnbmlmeSIgdmlld0JveD0iMCAwIDE1MDAgMTQ5OS45OTk5MzMiIGhlaWdodD0iMjAwMCIgcHJlc2VydmVBc3BlY3RSYXRpbz0ieE1pZFlNaWQgbWVldCIgdmVyc2lvbj0iMS4wIj48ZGVmcz48ZmlsdGVyIHg9IjAlIiB5PSIwJSIgd2lkdGg9IjEwMCUiIGhlaWdodD0iMTAwJSIgaWQ9ImVkYzRkOWRiNTQiPjxmZUNvbG9yTWF0cml4IHZhbHVlcz0iMCAwIDAgMCAxIDAgMCAwIDAgMSAwIDAgMCAwIDEgMCAwIDAgMSAwIiBjb2xvci1pbnRlcnBvbGF0aW9uLWZpbHRlcnM9InNSR0IiLz48L2ZpbHRlcj48Zy8+PG1hc2sgaWQ9IjFiNjg2M2RhYmIiPjxnIGZpbHRlcj0idXJsKCNlZGM0ZDlkYjU0KSI+PHJlY3QgeD0iLTE1MCIgd2lkdGg9IjE4MDAiIGZpbGw9IiMwMDAwMDAiIHk9Ii0xNDkuOTk5OTkzIiBoZWlnaHQ9IjE3OTkuOTk5OTIiIGZpbGwtb3BhY2l0eT0iMC40OCIvPjwvZz48L21hc2s+PGNsaXBQYXRoIGlkPSJiYmZjNjg0NjM2Ij48cmVjdCB4PSIwIiB3aWR0aD0iNTM4IiB5PSIwIiBoZWlnaHQ9IjgyMyIvPjwvY2xpcFBhdGg+PC9kZWZzPjxyZWN0IHg9Ii0xNTAiIHdpZHRoPSIxODAwIiBmaWxsPSIjZmZmZmZmIiB5PSItMTQ5Ljk5OTk5MyIgaGVpZ2h0PSIxNzk5Ljk5OTkyIiBmaWxsLW9wYWNpdHk9IjEiLz48cmVjdCB4PSItMTUwIiB3aWR0aD0iMTgwMCIgZmlsbD0iI2NiYzRiYSIgeT0iLTE0OS45OTk5OTMiIGhlaWdodD0iMTc5OS45OTk5MiIgZmlsbC1vcGFjaXR5PSIxIi8+PGcgZmlsbD0iI2ZmZmZmZiIgZmlsbC1vcGFjaXR5PSIxIj48ZyB0cmFuc2Zvcm09InRyYW5zbGF0ZSg3Ny43Mzg4MTMsIDg4MS40NzY1MzYpIj48Zz48cGF0aCBkPSJNIDI1OC4wNDY4NzUgLTEwNy43NSBDIDI1Ny41MzUxNTYgLTEwNy42NTYyNSAyNTYuOTc2NTYyIC0xMDcuNjQ4NDM4IDI1Ni4zNzUgLTEwNy43MzQzNzUgQyAyNTUuNzgxMjUgLTEwNy44MjgxMjUgMjU1LjIyNjU2MiAtMTA4LjA4MjAzMSAyNTQuNzE4NzUgLTEwOC41IEMgMjU0LjEyNSAtMTA5LjEwMTU2MiAyNTMuODY3MTg4IC0xMDkuNjU2MjUgMjUzLjk1MzEyNSAtMTEwLjE1NjI1IEMgMjU0LjA0Njg3NSAtMTEwLjY2NDA2MiAyNTQuMjUzOTA2IC0xMTEuMTI4OTA2IDI1NC41NzgxMjUgLTExMS41NDY4NzUgQyAyNTkuNDIxODc1IC0xMTkuMzQ3NjU2IDI2My42MTcxODggLTEyNy41MTU2MjUgMjY3LjE3MTg3NSAtMTM2LjA0Njg3NSBDIDI2OS40Mjk2ODggLTE0MS4zMDQ2ODggMjcxLjQxNDA2MiAtMTQ2LjcyNjU2MiAyNzMuMTI1IC0xNTIuMzEyNSBDIDI3NC4yMjY1NjIgLTE1NS43Njk1MzEgMjc0LjMyMDMxMiAtMTU5LjQ4NDM3NSAyNzMuNDA2MjUgLTE2My40NTMxMjUgQyAyNzIuNTMxMjUgLTE2Ny42OTE0MDYgMjY5Ljk5MjE4OCAtMTcwLjY4NzUgMjY1Ljc5Njg3NSAtMTcyLjQzNzUgQyAyNjIuNTY2NDA2IC0xNzMuNjMyODEyIDI1OS4yNjU2MjUgLTE3NC4yODEyNSAyNTUuODkwNjI1IC0xNzQuMzc1IEMgMjU1LjI5Njg3NSAtMTc0LjM3NSAyNTQuNjk1MzEyIC0xNzQuMzc1IDI1NC4wOTM3NSAtMTc0LjM3NSBDIDI0Ni45ODgyODEgLTE3NC4xMDE1NjIgMjQwLjA5Mzc1IC0xNzMuMDg1OTM4IDIzMy40MDYyNSAtMTcxLjMyODEyNSBDIDIyMS44MjAzMTIgLTE2OC41MTU2MjUgMjEwLjYxNzE4OCAtMTY1LjAxOTUzMSAxOTkuNzk2ODc1IC0xNjAuODQzNzUgQyAxODguOTg0Mzc1IC0xNTYuNjc1NzgxIDE3OC40MTAxNTYgLTE1Mi4xMjUgMTY4LjA3ODEyNSAtMTQ3LjE4NzUgQyAxMjIuNzM0Mzc1IC0xMjUuMTMyODEyIDgyLjE0MDYyNSAtOTcuMjY5NTMxIDQ2LjI5Njg3NSAtNjMuNTkzNzUgQyAzNy4yNTM5MDYgLTU1LjQ3NjU2MiAyOS4zNDM3NSAtNDYuMzkwNjI1IDIyLjU2MjUgLTM2LjMyODEyNSBDIDIwLjIwNzAzMSAtMzIuNzczNDM4IDE4LjEyODkwNiAtMjkuMDE1NjI1IDE2LjMyODEyNSAtMjUuMDQ2ODc1IEMgMTUuMzE2NDA2IC0yMi44MzU5MzggMTQuNjAxNTYyIC0yMC40NjA5MzggMTQuMTg3NSAtMTcuOTIxODc1IEMgMTIuNjY0MDYyIC05LjcxMDkzOCAxNi4yMTg3NSAtMy41NzgxMjUgMjQuODQzNzUgMC40ODQzNzUgQyAzMi4xMzI4MTIgMy44NDc2NTYgMzkuNTM5MDYyIDUuNzM4MjgxIDQ3LjA2MjUgNi4xNTYyNSBDIDUyLjk1NzAzMSA2LjY2NDA2MiA1OC42OTUzMTIgNi45MjE4NzUgNjQuMjgxMjUgNi45MjE4NzUgQyA2Ni45MTQwNjIgNi45MjE4NzUgNjkuNDUzMTI1IDYuODA0Njg4IDcxLjg5MDYyNSA2LjU3ODEyNSBDIDEwNy40MjE4NzUgNi4yMDMxMjUgMTQwLjk2MDkzOCAxLjU4NTkzOCAxNzIuNTE1NjI1IC03LjI2NTYyNSBDIDE3My4wMTU2MjUgLTcuNDUzMTI1IDE3My41MTk1MzEgLTcuNTkzNzUgMTc0LjAzMTI1IC03LjY4NzUgQyAxNzYuMTU2MjUgLTguNDE0MDYyIDE3OC4zOTQ1MzEgLTguOTg4MjgxIDE4MC43NSAtOS40MDYyNSBDIDE4MS4zNDM3NSAtOS41IDE4Mi4zNDM3NSAtOS41OTM3NSAxODMuNzUgLTkuNjg3NSBDIDE4NS4xNjQwNjIgLTkuNzgxMjUgMTg2LjUwMzkwNiAtOS42OTUzMTIgMTg3Ljc2NTYyNSAtOS40Mzc1IEMgMTg5LjAzNTE1NiAtOS4xODc1IDE4OS44MzIwMzEgLTguNjAxNTYyIDE5MC4xNTYyNSAtNy42ODc1IEMgMTkwLjI1IC03LjE3NTc4MSAxOTAuMTY0MDYyIC02Ljc4OTA2MiAxODkuOTA2MjUgLTYuNTMxMjUgQyAxODkuNjU2MjUgLTYuMjgxMjUgMTg5LjI4MTI1IC02LjEwOTM3NSAxODguNzgxMjUgLTYuMDE1NjI1IEMgMTg2Ljg0Mzc1IC01LjUxNTYyNSAxODQuOTI1NzgxIC01LjAwNzgxMiAxODMuMDMxMjUgLTQuNSBDIDE3Ny4zMTI1IC0yLjk3NjU2MiAxNzEuNjEzMjgxIC0xLjUgMTY1LjkzNzUgLTAuMDYyNSBDIDEzMy45Njg3NSA4LjE0NDUzMSAxMDAuNzczNDM4IDEyLjEzMjgxMiA2Ni4zNTkzNzUgMTEuOTA2MjUgQyA1OS4yNTM5MDYgMTEuOTA2MjUgNTIuMTQ4NDM4IDExLjc2NTYyNSA0NS4wNDY4NzUgMTEuNDg0Mzc1IEMgMzcuMDY2NDA2IDExLjE2MDE1NiAyOS4wNjI1IDkuNDc2NTYyIDIxLjAzMTI1IDYuNDM3NSBDIDUuMDcwMzEyIDAuMjUgLTAuNTAzOTA2IC05Ljk0NTMxMiA0LjI5Njg3NSAtMjQuMTU2MjUgQyA2LjIzNDM3NSAtMjkuODIwMzEyIDguOTc2NTYyIC0zNS4wNTQ2ODggMTIuNTMxMjUgLTM5Ljg1OTM3NSBDIDE3LjQ1NzAzMSAtNDYuOTYwOTM4IDIyLjkyMTg3NSAtNTMuNTU0Njg4IDI4LjkyMTg3NSAtNTkuNjQwNjI1IEMgMzQuOTIxODc1IC02NS43MzQzNzUgNDEuMTcxODc1IC03MS42MTcxODggNDcuNjcxODc1IC03Ny4yOTY4NzUgQyA3Ni42OTE0MDYgLTEwMi44NDc2NTYgMTA4LjYxNzE4OCAtMTI0LjgwNDY4OCAxNDMuNDUzMTI1IC0xNDMuMTcxODc1IEMgMTU0LjEwOTM3NSAtMTQ4Ljc1MzkwNiAxNjQuOTU3MDMxIC0xNTMuOTUzMTI1IDE3NiAtMTU4Ljc2NTYyNSBDIDE4Ny4wNTA3ODEgLTE2My41ODU5MzggMTk4LjQ1NzAzMSAtMTY3Ljg0NzY1NiAyMTAuMjE4NzUgLTE3MS41NDY4NzUgQyAyMjAuMDkzNzUgLTE3NC42Nzk2ODggMjMwLjI0MjE4OCAtMTc3LjA1NDY4OCAyNDAuNjcxODc1IC0xNzguNjcxODc1IEMgMjQ0Ljg2NzE4OCAtMTc5LjI3MzQzOCAyNDkuMDQ2ODc1IC0xNzkuNTc4MTI1IDI1My4yMDMxMjUgLTE3OS41NzgxMjUgQyAyNTUuOTIxODc1IC0xNzkuNTc4MTI1IDI1OC42NjQwNjIgLTE3OS40ODQzNzUgMjYxLjQzNzUgLTE3OS4yOTY4NzUgQyAyNjQuNjY0MDYyIC0xNzguOTcyNjU2IDI2Ny44OTQ1MzEgLTE3OC4zMDA3ODEgMjcxLjEyNSAtMTc3LjI4MTI1IEMgMjc5Ljg4MjgxMiAtMTc0LjE0NDUzMSAyODQuMzU5Mzc1IC0xNjguMzU5Mzc1IDI4NC41NDY4NzUgLTE1OS45MjE4NzUgQyAyODQuNTQ2ODc1IC0xNTYuMTc5Njg4IDI4NC4wMzUxNTYgLTE1Mi41ODIwMzEgMjgzLjAxNTYyNSAtMTQ5LjEyNSBDIDI4MC44OTg0MzggLTE0Mi40Mzc1IDI3OC4yOTY4NzUgLTEzNiAyNzUuMjAzMTI1IC0xMjkuODEyNSBDIDI3Mi4xMDkzNzUgLTEyMy42MzI4MTIgMjY4Ljc4NTE1NiAtMTE3LjU5Mzc1IDI2NS4yMzQzNzUgLTExMS42ODc1IEMgMjY0LjIyMjY1NiAtMTA5LjY1NjI1IDI2Mi41ODU5MzggLTEwOC4zNDM3NSAyNjAuMzI4MTI1IC0xMDcuNzUgQyAyNTkuNjI4OTA2IC0xMDcuNjU2MjUgMjU4Ljk4NDM3NSAtMTA3LjY1NjI1IDI1OC4zOTA2MjUgLTEwNy43NSBaIE0gMjU4LjA0Njg3NSAtMTA3Ljc1ICIvPjwvZz48L2c+PC9nPjxnIGZpbGw9IiNmZmZmZmYiIGZpbGwtb3BhY2l0eT0iMSI+PGcgdHJhbnNmb3JtPSJ0cmFuc2xhdGUoMjk2LjEyNTQ4MywgODgxLjQ3NjUzNikiPjxnPjxwYXRoIGQ9Ik0gNTAuMjAzMTI1IC0zNS4yNSBDIDUxLjI4NTE1NiAtMzQuNjMyODEyIDUxLjM2NzE4OCAtMzMuMTI1IDUwLjQ1MzEyNSAtMzAuNzE4NzUgQyA0OS4xMDkzNzUgLTI4Ljk2ODc1IDQ3LjY3NTc4MSAtMjcuMzMyMDMxIDQ2LjE1NjI1IC0yNS44MTI1IEMgNDQuNjMyODEyIC0yNC4yODkwNjIgNDIuOTcyNjU2IC0yMi45Mjk2ODggNDEuMTcxODc1IC0yMS43MzQzNzUgQyA0MS4wMzUxNTYgLTIxLjczNDM3NSA0MC45Njg3NSAtMjEuNjg3NSA0MC45Njg3NSAtMjEuNTkzNzUgQyAzOS43Njk1MzEgLTIwLjc1NzgxMiAzOC41IC0yMC4wMzkwNjIgMzcuMTU2MjUgLTE5LjQzNzUgQyAyNi4xMzI4MTIgLTE1LjQ3NjU2MiAyMC41MDc4MTIgLTE3LjgxMjUgMjAuMjgxMjUgLTI2LjQzNzUgQyAxNS44MDA3ODEgLTIyLjU2MjUgMTIuODAwNzgxIC0yMC4xODc1IDExLjI4MTI1IC0xOS4zMTI1IEMgNy42MzI4MTIgLTE3LjEzMjgxMiAzLjY5MTQwNiAtMTYuMTY0MDYyIC0wLjU0Njg3NSAtMTYuNDA2MjUgQyAtMy42OTE0MDYgLTE2LjU4MjAzMSAtNS44MjgxMjUgLTE3LjUzNTE1NiAtNi45NTMxMjUgLTE5LjI2NTYyNSBDIC04LjA4NTkzOCAtMjAuOTkyMTg4IC03Ljk4NDM3NSAtMjMuMzM1OTM4IC02LjY0MDYyNSAtMjYuMjk2ODc1IEMgLTQuNjA5Mzc1IC0zMC45NTMxMjUgLTEuNzI2NTYyIC0zNS4xMDE1NjIgMiAtMzguNzUgQyA2LjM4MjgxMiAtNDIuODEyNSAxMS4yNTM5MDYgLTQ2LjA2NjQwNiAxNi42MDkzNzUgLTQ4LjUxNTYyNSBDIDE5LjQ2MDkzOCAtNDkuOTQxNDA2IDIyLjQ2MDkzOCAtNTAuNDkyMTg4IDI1LjYwOTM3NSAtNTAuMTcxODc1IEMgMjguNzQyMTg4IC00OS45ODQzNzUgMzAuNjMyODEyIC00OC4yMDcwMzEgMzEuMjgxMjUgLTQ0Ljg0Mzc1IEMgMzEuNTUwNzgxIC00My44MjAzMTIgMzEuMjk2ODc1IC00Mi45MjE4NzUgMzAuNTE1NjI1IC00Mi4xNDA2MjUgQyAyOS41MDM5MDYgLTQxLjIyMjY1NiAyOC4zMjgxMjUgLTQxLjAxNTYyNSAyNi45ODQzNzUgLTQxLjUxNTYyNSBDIDI2Ljg5MDYyNSAtNDEuNTE1NjI1IDI2Ljc1NzgxMiAtNDEuNTM1MTU2IDI2LjU5Mzc1IC00MS41NzgxMjUgQyAyNi40Mzc1IC00MS42Mjg5MDYgMjYuMzEyNSAtNDEuNzAzMTI1IDI2LjIxODc1IC00MS43OTY4NzUgQyAyNC44ODI4MTIgLTQzLjY0MDYyNSAyMy41MzUxNTYgLTQ0LjQxMDE1NiAyMi4xNzE4NzUgLTQ0LjEwOTM3NSBDIDIwLjgxNjQwNiAtNDMuODE2NDA2IDE5LjM3ODkwNiAtNDMuMjA3MDMxIDE3Ljg1OTM3NSAtNDIuMjgxMjUgQyAxMC43NTM5MDYgLTM4LjEyNSA1LjQ2ODc1IC0zMi4zMzIwMzEgMiAtMjQuOTA2MjUgQyAxLjgyMDMxMiAtMjQuNTgyMDMxIDEuNzA3MDMxIC0yNC4yMjI2NTYgMS42NTYyNSAtMjMuODI4MTI1IEMgMS42MTMyODEgLTIzLjQ0MTQwNiAxLjcyNjU2MiAtMjMuMTMyODEyIDIgLTIyLjkwNjI1IEMgMi44MzIwMzEgLTIyLjYyNSAzLjc1MzkwNiAtMjIuNjc5Njg4IDQuNzY1NjI1IC0yMy4wNzgxMjUgQyA1Ljc4NTE1NiAtMjMuNDcyNjU2IDYuODAwNzgxIC0yNC4wNTA3ODEgNy44MTI1IC0yNC44MTI1IEMgOC44MzIwMzEgLTI1LjU3MDMxMiA5LjY4NzUgLTI2LjIwMzEyNSAxMC4zNzUgLTI2LjcwMzEyNSBDIDEwLjQ2ODc1IC0yNi44NDc2NTYgMTAuNTE1NjI1IC0yNi45MjE4NzUgMTAuNTE1NjI1IC0yNi45MjE4NzUgQyAxMy44Nzg5MDYgLTI5LjczNDM3NSAxNy4xNzU3ODEgLTMyLjYxMzI4MSAyMC40MDYyNSAtMzUuNTYyNSBDIDIxLjg0Mzc1IC0zNy4wOTM3NSAyMy42MTcxODggLTM3Ljk0NTMxMiAyNS43MzQzNzUgLTM4LjEyNSBDIDI4Ljc4NTE1NiAtMzguMTI1IDMwLjA1NDY4OCAtMzYuNzY1NjI1IDI5LjU0Njg3NSAtMzQuMDQ2ODc1IEMgMjkuMjY1NjI1IC0zMy4wMjM0MzggMjguOTYwOTM4IC0zMi4wMDc4MTIgMjguNjQwNjI1IC0zMSBDIDI3LjQ0MTQwNiAtMjYuNjEzMjgxIDI3LjM5NDUzMSAtMjQuMDM5MDYyIDI4LjUgLTIzLjI4MTI1IEMgMjkuNjEzMjgxIC0yMi41MTk1MzEgMzEuMzEyNSAtMjIuNTE5NTMxIDMzLjU5Mzc1IC0yMy4yODEyNSBDIDM1Ljg3NSAtMjQuMDM5MDYyIDM4LjE1NjI1IC0yNS40OTIxODggNDAuNDM3NSAtMjcuNjQwNjI1IEMgNDIuNzI2NTYyIC0yOS43ODUxNTYgNDQuNjU2MjUgLTMxLjc0MjE4OCA0Ni4yMTg3NSAtMzMuNTE1NjI1IEMgNDcuNzg5MDYyIC0zNS4yOTY4NzUgNDkuMTE3MTg4IC0zNS44NzUgNTAuMjAzMTI1IC0zNS4yNSBaIE0gNTAuMjAzMTI1IC0zNS4yNSAiLz48L2c+PC9nPjwvZz48ZyBmaWxsPSIjZmZmZmZmIiBmaWxsLW9wYWNpdHk9IjEiPjxnIHRyYW5zZm9ybT0idHJhbnNsYXRlKDM2My4yNjA2ODYsIDg4MS40NzY1MzYpIj48Zz48cGF0aCBkPSJNIDMzLjQ4NDM3NSAtMzUuMDc4MTI1IEMgMjYuMjAzMTI1IC0zMi4zNTkzNzUgMjAuOTQ1MzEyIC0zMC4xNDQ1MzEgMTcuNzE4NzUgLTI4LjQzNzUgQyAxNS4zNjMyODEgLTI3LjI4MTI1IDE0LjAwNzgxMiAtMjYuMzIwMzEyIDEzLjY1NjI1IC0yNS41NjI1IEMgMTMuMzEyNSAtMjQuODAwNzgxIDEzLjU4MjAzMSAtMjMuNDA2MjUgMTQuNDY4NzUgLTIxLjM3NSBDIDE0LjQ2ODc1IC0yMS4yODkwNjIgMTQuNTM1MTU2IC0yMS4xNTYyNSAxNC42NzE4NzUgLTIwLjk2ODc1IEMgMTUuNjc5Njg4IC0xOC41MTk1MzEgMTYuMjgxMjUgLTE1Ljk4NDM3NSAxNi40Njg3NSAtMTMuMzU5Mzc1IEMgMTYuNzg5MDYyIC04LjA0Njg3NSAxMi4yODEyNSAtNC4zMjgxMjUgMi45Mzc1IC0yLjIwMzEyNSBDIC02LjQwNjI1IC0wLjA4NTkzNzUgLTEyLjY1NjI1IC0wLjAxOTUzMTIgLTE1LjgxMjUgLTIgQyAtMTguOTY4NzUgLTMuOTg4MjgxIC0xOS45Mzc1IC02LjUwMzkwNiAtMTguNzE4NzUgLTkuNTQ2ODc1IEMgLTE3LjUgLTEyLjU4NTkzOCAtMTQuMzI4MTI1IC0xNS42NzU3ODEgLTkuMjAzMTI1IC0xOC44MTI1IEMgLTQuMDc4MTI1IC0yMS45NTcwMzEgLTAuNjQ4NDM4IC0yNC4yMTg3NSAxLjA3ODEyNSAtMjUuNTkzNzUgQyAyLjgwNDY4OCAtMjYuOTc2NTYyIDMuMzIwMzEyIC0yOC41MjM0MzggMi42MjUgLTMwLjIzNDM3NSBDIDIuMzk0NTMxIC0zMC44MzU5MzggMi4xNDQ1MzEgLTMxLjQzNzUgMS44NzUgLTMyLjAzMTI1IEMgMS4yNjk1MzEgLTMzLjQ2ODc1IDAuNjQ0NTMxIC0zNC45NDUzMTIgMCAtMzYuNDY4NzUgQyAtMS4xOTUzMTIgLTM5LjIzODI4MSAtMS43MTA5MzggLTQxLjk1NzAzMSAtMS41NDY4NzUgLTQ0LjYyNSBDIC0xLjM5MDYyNSAtNDcuMzAwNzgxIC0wLjM5ODQzOCAtNDkuNTUwNzgxIDEuNDIxODc1IC01MS4zNzUgQyAzLjI0MjE4OCAtNTMuMTk1MzEyIDYuMDY2NDA2IC01NC4xNzk2ODggOS44OTA2MjUgLTU0LjMyODEyNSBDIDEyLjA1NDY4OCAtNTQuNDEwMTU2IDEzLjk5MjE4OCAtNTQuMTE3MTg4IDE1LjcwMzEyNSAtNTMuNDUzMTI1IEMgMTcuNDEwMTU2IC01Mi43ODUxNTYgMTguNzczNDM4IC01MS41NTA3ODEgMTkuNzk2ODc1IC00OS43NSBDIDIwLjYxNzE4OCAtNDguNTA3ODEyIDIwLjM2MzI4MSAtNDcuMzc4OTA2IDE5LjAzMTI1IC00Ni4zNTkzNzUgQyAxOC4xNTYyNSAtNDUuNjcxODc1IDE3LjIwNzAzMSAtNDUuNTgyMDMxIDE2LjE4NzUgLTQ2LjA5Mzc1IEMgMTUuNTM5MDYyIC00Ni4zNjMyODEgMTQuOTIxODc1IC00Ni43NTM5MDYgMTQuMzI4MTI1IC00Ny4yNjU2MjUgQyAxNC4zMjgxMjUgLTQ3LjM5ODQzOCAxNC4zMjgxMjUgLTQ3LjQ2ODc1IDE0LjMyODEyNSAtNDcuNDY4NzUgQyAxNC4wNDY4NzUgLTQ3LjY1NjI1IDEzLjc4OTA2MiAtNDcuODQzNzUgMTMuNTYyNSAtNDguMDMxMjUgQyAxMy4yODEyNSAtNDguNDM3NSAxMi45NzY1NjIgLTQ4Ljc1NzgxMiAxMi42NTYyNSAtNDkgQyAxMS40NTcwMzEgLTQ5Ljg3NSAxMC4yNSAtNTAuMTMyODEyIDkuMDMxMjUgLTQ5Ljc4MTI1IEMgNy44MTI1IC00OS40Mzc1IDYuODk4NDM4IC00OC41MDM5MDYgNi4yOTY4NzUgLTQ2Ljk4NDM3NSBDIDUuODc4OTA2IC00NS43ODUxNTYgNS42NzE4NzUgLTQ0LjU2MjUgNS42NzE4NzUgLTQzLjMxMjUgQyA1Ljc2NTYyNSAtNDEuNzg5MDYyIDYuMTEzMjgxIC00MC4zMTY0MDYgNi43MTg3NSAtMzguODkwNjI1IEMgNy4xMjUgLTM4LjAxNTYyNSA3LjQ4ODI4MSAtMzcuMjA3MDMxIDcuODEyNSAtMzYuNDY4NzUgQyA4LjYwMTU2MiAtMzQuNDM3NSA5LjI1IC0zMy4wMzkwNjIgOS43NSAtMzIuMjgxMjUgQyAxMC4yNTc4MTIgLTMxLjUxOTUzMSAxMC44NjcxODggLTMxLjE5NTMxMiAxMS41NzgxMjUgLTMxLjMxMjUgQyAxMi4yOTY4NzUgLTMxLjQyNTc4MSAxOC44MzU5MzggLTMzLjc2OTUzMSAzMS4yMDMxMjUgLTM4LjM0Mzc1IEMgMzMuODc4OTA2IC0zOS4yMTg3NSAzNC42NDA2MjUgLTM4LjEyODkwNiAzMy40ODQzNzUgLTM1LjA3ODEyNSBaIE0gMy41MzEyNSAtOC42NTYyNSBDIDYuNzU3ODEyIC05Ljc1NzgxMiA4LjExNzE4OCAtMTEuOTI1NzgxIDcuNjA5Mzc1IC0xNS4xNTYyNSBDIDcuNjA5Mzc1IC0xNS4zODI4MTIgNy41NjI1IC0xNS42NDA2MjUgNy40Njg3NSAtMTUuOTIxODc1IEMgNy4yODkwNjIgLTE3LjY3MTg3NSA2LjkyMTg3NSAtMTkuMDE1NjI1IDYuMzU5Mzc1IC0xOS45NTMxMjUgQyA1LjgwNDY4OCAtMjAuODk4NDM4IDQuNTYyNSAtMjAuODY3MTg4IDIuNjI1IC0xOS44NTkzNzUgQyAtMi4xNjQwNjIgLTE3LjE0MDYyNSAtNi41OTM3NSAtMTMuOTU3MDMxIC0xMC42NTYyNSAtMTAuMzEyNSBDIC0xMC45Mzc1IC05Ljk4ODI4MSAtMTEuMTkxNDA2IC05LjY4NzUgLTExLjQyMTg3NSAtOS40MDYyNSBDIC0xMS40MjE4NzUgLTkuNDA2MjUgLTExLjQ2ODc1IC05LjMzNTkzOCAtMTEuNTYyNSAtOS4yMDMxMjUgQyAtMTEuODMyMDMxIC04LjgzNTkzOCAtMTEuODc1IC04LjQyMTg3NSAtMTEuNjg3NSAtNy45NTMxMjUgQyAtMTEuNTA3ODEyIC03LjQ5MjE4OCAtMTEuMDk3NjU2IC03LjI2NTYyNSAtMTAuNDUzMTI1IC03LjI2NTYyNSBDIC01LjcwMzEyNSAtNi41MjM0MzggLTEuMDM5MDYyIC02Ljk4ODI4MSAzLjUzMTI1IC04LjY1NjI1IFogTSAzLjUzMTI1IC04LjY1NjI1ICIvPjwvZz48L2c+PC9nPjxnIGZpbGw9IiNmZmZmZmYiIGZpbGwtb3BhY2l0eT0iMSI+PGcgdHJhbnNmb3JtPSJ0cmFuc2xhdGUoNDE1LjE3Mzg3NiwgODgxLjQ3NjUzNikiPjxnPjxwYXRoIGQ9Ik0gNTAuMjAzMTI1IC0zNS4yNSBDIDUxLjI4NTE1NiAtMzQuNjMyODEyIDUxLjM2NzE4OCAtMzMuMTI1IDUwLjQ1MzEyNSAtMzAuNzE4NzUgQyA0OS4xMDkzNzUgLTI4Ljk2ODc1IDQ3LjY3NTc4MSAtMjcuMzMyMDMxIDQ2LjE1NjI1IC0yNS44MTI1IEMgNDQuNjMyODEyIC0yNC4yODkwNjIgNDIuOTcyNjU2IC0yMi45Mjk2ODggNDEuMTcxODc1IC0yMS43MzQzNzUgQyA0MS4wMzUxNTYgLTIxLjczNDM3NSA0MC45Njg3NSAtMjEuNjg3NSA0MC45Njg3NSAtMjEuNTkzNzUgQyAzOS43Njk1MzEgLTIwLjc1NzgxMiAzOC41IC0yMC4wMzkwNjIgMzcuMTU2MjUgLTE5LjQzNzUgQyAyNi4xMzI4MTIgLTE1LjQ3NjU2MiAyMC41MDc4MTIgLTE3LjgxMjUgMjAuMjgxMjUgLTI2LjQzNzUgQyAxNS44MDA3ODEgLTIyLjU2MjUgMTIuODAwNzgxIC0yMC4xODc1IDExLjI4MTI1IC0xOS4zMTI1IEMgNy42MzI4MTIgLTE3LjEzMjgxMiAzLjY5MTQwNiAtMTYuMTY0MDYyIC0wLjU0Njg3NSAtMTYuNDA2MjUgQyAtMy42OTE0MDYgLTE2LjU4MjAzMSAtNS44MjgxMjUgLTE3LjUzNTE1NiAtNi45NTMxMjUgLTE5LjI2NTYyNSBDIC04LjA4NTkzOCAtMjAuOTkyMTg4IC03Ljk4NDM3NSAtMjMuMzM1OTM4IC02LjY0MDYyNSAtMjYuMjk2ODc1IEMgLTQuNjA5Mzc1IC0zMC45NTMxMjUgLTEuNzI2NTYyIC0zNS4xMDE1NjIgMiAtMzguNzUgQyA2LjM4MjgxMiAtNDIuODEyNSAxMS4yNTM5MDYgLTQ2LjA2NjQwNiAxNi42MDkzNzUgLTQ4LjUxNTYyNSBDIDE5LjQ2MDkzOCAtNDkuOTQxNDA2IDIyLjQ2MDkzOCAtNTAuNDkyMTg4IDI1LjYwOTM3NSAtNTAuMTcxODc1IEMgMjguNzQyMTg4IC00OS45ODQzNzUgMzAuNjMyODEyIC00OC4yMDcwMzEgMzEuMjgxMjUgLTQ0Ljg0Mzc1IEMgMzEuNTUwNzgxIC00My44MjAzMTIgMzEuMjk2ODc1IC00Mi45MjE4NzUgMzAuNTE1NjI1IC00Mi4xNDA2MjUgQyAyOS41MDM5MDYgLTQxLjIyMjY1NiAyOC4zMjgxMjUgLTQxLjAxNTYyNSAyNi45ODQzNzUgLTQxLjUxNTYyNSBDIDI2Ljg5MDYyNSAtNDEuNTE1NjI1IDI2Ljc1NzgxMiAtNDEuNTM1MTU2IDI2LjU5Mzc1IC00MS41NzgxMjUgQyAyNi40Mzc1IC00MS42Mjg5MDYgMjYuMzEyNSAtNDEuNzAzMTI1IDI2LjIxODc1IC00MS43OTY4NzUgQyAyNC44ODI4MTIgLTQzLjY0MDYyNSAyMy41MzUxNTYgLTQ0LjQxMDE1NiAyMi4xNzE4NzUgLTQ0LjEwOTM3NSBDIDIwLjgxNjQwNiAtNDMuODE2NDA2IDE5LjM3ODkwNiAtNDMuMjA3MDMxIDE3Ljg1OTM3NSAtNDIuMjgxMjUgQyAxMC43NTM5MDYgLTM4LjEyNSA1LjQ2ODc1IC0zMi4zMzIwMzEgMiAtMjQuOTA2MjUgQyAxLjgyMDMxMiAtMjQuNTgyMDMxIDEuNzA3MDMxIC0yNC4yMjI2NTYgMS42NTYyNSAtMjMuODI4MTI1IEMgMS42MTMyODEgLTIzLjQ0MTQwNiAxLjcyNjU2MiAtMjMuMTMyODEyIDIgLTIyLjkwNjI1IEMgMi44MzIwMzEgLTIyLjYyNSAzLjc1MzkwNiAtMjIuNjc5Njg4IDQuNzY1NjI1IC0yMy4wNzgxMjUgQyA1Ljc4NTE1NiAtMjMuNDcyNjU2IDYuODAwNzgxIC0yNC4wNTA3ODEgNy44MTI1IC0yNC44MTI1IEMgOC44MzIwMzEgLTI1LjU3MDMxMiA5LjY4NzUgLTI2LjIwMzEyNSAxMC4zNzUgLTI2LjcwMzEyNSBDIDEwLjQ2ODc1IC0yNi44NDc2NTYgMTAuNTE1NjI1IC0yNi45MjE4NzUgMTAuNTE1NjI1IC0yNi45MjE4NzUgQyAxMy44Nzg5MDYgLTI5LjczNDM3NSAxNy4xNzU3ODEgLTMyLjYxMzI4MSAyMC40MDYyNSAtMzUuNTYyNSBDIDIxLjg0Mzc1IC0zNy4wOTM3NSAyMy42MTcxODggLTM3Ljk0NTMxMiAyNS43MzQzNzUgLTM4LjEyNSBDIDI4Ljc4NTE1NiAtMzguMTI1IDMwLjA1NDY4OCAtMzYuNzY1NjI1IDI5LjU0Njg3NSAtMzQuMDQ2ODc1IEMgMjkuMjY1NjI1IC0zMy4wMjM0MzggMjguOTYwOTM4IC0zMi4wMDc4MTIgMjguNjQwNjI1IC0zMSBDIDI3LjQ0MTQwNiAtMjYuNjEzMjgxIDI3LjM5NDUzMSAtMjQuMDM5MDYyIDI4LjUgLTIzLjI4MTI1IEMgMjkuNjEzMjgxIC0yMi41MTk1MzEgMzEuMzEyNSAtMjIuNTE5NTMxIDMzLjU5Mzc1IC0yMy4yODEyNSBDIDM1Ljg3NSAtMjQuMDM5MDYyIDM4LjE1NjI1IC0yNS40OTIxODggNDAuNDM3NSAtMjcuNjQwNjI1IEMgNDIuNzI2NTYyIC0yOS43ODUxNTYgNDQuNjU2MjUgLTMxLjc0MjE4OCA0Ni4yMTg3NSAtMzMuNTE1NjI1IEMgNDcuNzg5MDYyIC0zNS4yOTY4NzUgNDkuMTE3MTg4IC0zNS44NzUgNTAuMjAzMTI1IC0zNS4yNSBaIE0gNTAuMjAzMTI1IC0zNS4yNSAiLz48L2c+PC9nPjwvZz48ZyBmaWxsPSIjZmZmZmZmIiBmaWxsLW9wYWNpdHk9IjEiPjxnIHRyYW5zZm9ybT0idHJhbnNsYXRlKDQ4Mi4zMDkwNzksIDg4MS40NzY1MzYpIj48Zy8+PC9nPjwvZz48ZyBmaWxsPSIjZmZmZmZmIiBmaWxsLW9wYWNpdHk9IjEiPjxnIHRyYW5zZm9ybT0idHJhbnNsYXRlKDU1NS44NzkwMTgsIDg4MS40NzY1MzYpIj48Zz48cGF0aCBkPSJNIDMzNi40Mzc1IC04Ny4xODc1IEMgMzM3LjU1MDc4MSAtODYuOTU3MDMxIDMzOC40Mjk2ODggLTg2LjQ5MjE4OCAzMzkuMDc4MTI1IC04NS43OTY4NzUgQyAzMzkuNzIyNjU2IC04NS4xMDkzNzUgMzM5Ljg1OTM3NSAtODQuNDQxNDA2IDMzOS40ODQzNzUgLTgzLjc5Njg3NSBDIDMzOS4wNjY0MDYgLTgzLjIwMzEyNSAzMzguNjAxNTYyIC04Mi44MzIwMzEgMzM4LjA5Mzc1IC04Mi42ODc1IEMgMzM3LjU5Mzc1IC04Mi41NTA3ODEgMzM3LjAzOTA2MiAtODIuNTMxMjUgMzM2LjQzNzUgLTgyLjYyNSBDIDMzNS43MDcwMzEgLTgyLjYyNSAzMzQuOTQ1MzEyIC04Mi42NzE4NzUgMzM0LjE1NjI1IC04Mi43NjU2MjUgQyAzMjMuMTc1NzgxIC04My4wODU5MzggMzA4LjYzMjgxMiAtODIuNDUzMTI1IDI5MC41MzEyNSAtODAuODU5Mzc1IEMgMjcyLjQyNTc4MSAtNzkuMjY1NjI1IDI1Ny44MzU5MzggLTc3LjcwNzAzMSAyNDYuNzY1NjI1IC03Ni4xODc1IEMgMjM4LjIyMjY1NiAtNzUuMDgyMDMxIDIyOS42ODc1IC03My44ODI4MTIgMjIxLjE1NjI1IC03Mi41OTM3NSBDIDIyMC45Njg3NSAtNzIuNTkzNzUgMjIwLjcxMDkzOCAtNzIuNTE5NTMxIDIyMC4zOTA2MjUgLTcyLjM3NSBDIDIxNi44MzU5MzggLTcxLjg3NSAyMTMuNTg1OTM4IC03MC41NjI1IDIxMC42NDA2MjUgLTY4LjQzNzUgQyAxOTkuNzk2ODc1IC02MS4wNTA3ODEgMTg4LjU4MjAzMSAtNTQuMzU5Mzc1IDE3NyAtNDguMzU5Mzc1IEMgMTY1LjQyNTc4MSAtNDIuMzY3MTg4IDE1My42MTcxODggLTM2Ljc4OTA2MiAxNDEuNTc4MTI1IC0zMS42MjUgQyAxMjIuMDY2NDA2IC0yMyAxMDIuMTEzMjgxIC0xNS40NzY1NjIgODEuNzE4NzUgLTkuMDYyNSBDIDc3LjU3MDMxMiAtNy45NTcwMzEgNzQuNTMxMjUgLTUuNDIxODc1IDcyLjU5Mzc1IC0xLjQ1MzEyNSBDIDYzLjU1MDc4MSAxNi41ODU5MzggNTQuMTEzMjgxIDM0LjIzNDM3NSA0NC4yODEyNSA1MS40ODQzNzUgQyAzNS41NjI1IDY2Ljg0NzY1NiAyNy4xOTE0MDYgODIuMzk0NTMxIDE5LjE3MTg3NSA5OC4xMjUgQyAxOS4xNzE4NzUgOTguMjE4NzUgMTkuMTI1IDk4LjMxMjUgMTkuMDMxMjUgOTguNDA2MjUgQyAxOC43MDcwMzEgOTkuMjI2NTYyIDE4LjI4OTA2MiA5OS44OTQ1MzEgMTcuNzgxMjUgMTAwLjQwNjI1IEMgMTYuOTQ1MzEyIDEwMS4wOTM3NSAxNS45NzY1NjIgMTAxLjM0NzY1NiAxNC44NzUgMTAxLjE3MTg3NSBDIDE0LjI4MTI1IDEwMS4zNDc2NTYgMTMuNjc5Njg4IDEwMS4zNDc2NTYgMTMuMDc4MTI1IDEwMS4xNzE4NzUgQyAxMS44MjgxMjUgMTAwLjY2MDE1NiAxMS4yMDMxMjUgOTkuNzM4MjgxIDExLjIwMzEyNSA5OC40MDYyNSBDIDExLjM0NzY1NiA5Ni4xODc1IDEyLjA2NjQwNiA5NC4xMDkzNzUgMTMuMzU5Mzc1IDkyLjE3MTg3NSBDIDEzLjQ1MzEyNSA5Mi4wNzgxMjUgMTMuNSA5MS45NjA5MzggMTMuNSA5MS44MjgxMjUgQyAyMS42MTMyODEgNzcuMjQyMTg4IDI5LjYwMTU2MiA2Mi42NjAxNTYgMzcuNDY4NzUgNDguMDc4MTI1IEMgNDUuMzMyMDMxIDMzLjUwMzkwNiA1Mi45Mjk2ODggMTguNzIyNjU2IDYwLjI2NTYyNSAzLjczNDM3NSBDIDYwLjg2NzE4OCAyLjQ5MjE4OCA2MS40NzI2NTYgMS4yMjY1NjIgNjIuMDc4MTI1IC0wLjA2MjUgQyA2Mi4zMDQ2ODggLTAuNzA3MDMxIDYyLjU1NDY4OCAtMS4zNzg5MDYgNjIuODI4MTI1IC0yLjA3ODEyNSBDIDYyLjE0MDYyNSAtMi4yNjU2MjUgNjEuNDkyMTg4IC0yLjQyNTc4MSA2MC44OTA2MjUgLTIuNTYyNSBDIDU5Ljc0MjE4OCAtMi4zMzIwMzEgNTguNjEzMjgxIC0yLjAwNzgxMiA1Ny41IC0xLjU5Mzc1IEMgNTcuMDgyMDMxIC0xLjUgNTYuNjkxNDA2IC0xLjM1OTM3NSA1Ni4zMjgxMjUgLTEuMTcxODc1IEMgNDIuMTE3MTg4IDIuODc4OTA2IDI3Ljc1IDYuMzM1OTM4IDEzLjIxODc1IDkuMjAzMTI1IEMgMy4xNTYyNSAxMS4wMDM5MDYgLTYuOTQ1MzEyIDEyLjI3MzQzOCAtMTcuMDkzNzUgMTMuMDE1NjI1IEMgLTE3LjYwMTU2MiAxMy4wOTc2NTYgLTE4LjA2MjUgMTMuMTQwNjI1IC0xOC40Njg3NSAxMy4xNDA2MjUgQyAtMTkuNDg4MjgxIDEzLjIzNDM3NSAtMjAuNTAzOTA2IDEzLjI4MTI1IC0yMS41MTU2MjUgMTMuMjgxMjUgQyAtMjUuNDQxNDA2IDEzLjI4MTI1IC0yOS4yNSAxMi42Nzk2ODggLTMyLjkzNzUgMTEuNDg0Mzc1IEMgLTM1Ljc1IDEwLjQ3MjY1NiAtMzcuNDI5Njg4IDguODY3MTg4IC0zNy45ODQzNzUgNi42NzE4NzUgQyAtMzguNTQ2ODc1IDQuNDg0Mzc1IC0zNy44Nzg5MDYgMi4xMTcxODggLTM1Ljk4NDM3NSAtMC40MjE4NzUgQyAtMzMuNDQxNDA2IC0zLjM2NzE4OCAtMzAuNDQxNDA2IC01Ljc4OTA2MiAtMjYuOTg0Mzc1IC03LjY4NzUgQyAtMTkuMTQwNjI1IC0xMi41NzAzMTIgLTEwLjkwNjI1IC0xNi41ODIwMzEgLTIuMjgxMjUgLTE5LjcxODc1IEMgMjAuNzM4MjgxIC0yOC40Mzc1IDQ0LjA4MjAzMSAtMzYuMDk3NjU2IDY3Ljc1IC00Mi43MDMxMjUgQyA2OS4wMzkwNjIgLTQzLjEwOTM3NSA3MC4zOTg0MzggLTQzLjQ3MjY1NiA3MS44MjgxMjUgLTQzLjc5Njg3NSBDIDc0Ljg2NzE4OCAtNDQuMzk4NDM4IDc3LjcwMzEyNSAtNDUuMjg5MDYyIDgwLjMyODEyNSAtNDYuNDY4NzUgQyA4Mi45NjA5MzggLTQ3LjY0NDUzMSA4NC45NTMxMjUgLTQ5LjY4NzUgODYuMjk2ODc1IC01Mi41OTM3NSBDIDkxLjI3MzQzOCAtNjQuMDgyMDMxIDk2LjA3MDMxMiAtNzUuNTc4MTI1IDEwMC42ODc1IC04Ny4wNzgxMjUgQyAxMDUuMzAwNzgxIC05OC41ODU5MzggMTA5LjU5Mzc1IC0xMTAuMjk2ODc1IDExMy41NjI1IC0xMjIuMjAzMTI1IEMgMTEzLjU2MjUgLTEyMi4yOTY4NzUgMTEzLjYwMTU2MiAtMTIyLjQzNzUgMTEzLjY4NzUgLTEyMi42MjUgQyAxMTQuMjg5MDYyIC0xMjQuNzg5MDYyIDExNS4wOTc2NTYgLTEyNi44MTY0MDYgMTE2LjEwOTM3NSAtMTI4LjcwMzEyNSBDIDExNi41MjM0MzggLTEyOS4zNDc2NTYgMTE3LjA2NjQwNiAtMTI5Ljc5Njg3NSAxMTcuNzM0Mzc1IC0xMzAuMDQ2ODc1IEMgMTE4LjQxMDE1NiAtMTMwLjMwNDY4OCAxMTkuMDkzNzUgLTEzMC4zNjcxODggMTE5Ljc4MTI1IC0xMzAuMjM0Mzc1IEMgMTIwLjI4OTA2MiAtMTMwLjM2NzE4OCAxMjAuODQzNzUgLTEzMC4zNjcxODggMTIxLjQzNzUgLTEzMC4yMzQzNzUgQyAxMjIuOTY4NzUgLTEyOS44NTkzNzUgMTIzLjg0NzY1NiAtMTI4Ljg0Mzc1IDEyNC4wNzgxMjUgLTEyNy4xODc1IEMgMTI0LjA3ODEyNSAtMTI0LjA1MDc4MSAxMjMuNSAtMTIxLjAwMzkwNiAxMjIuMzQzNzUgLTExOC4wNDY4NzUgQyAxMjIuMzQzNzUgLTExNy45NjA5MzggMTIyLjI5Njg3NSAtMTE3LjgyODEyNSAxMjIuMjAzMTI1IC0xMTcuNjQwNjI1IEMgMTE3LjIyMjY1NiAtMTAyLjQxMDE1NiAxMTEuNjQwNjI1IC04Ny40NDE0MDYgMTA1LjQ1MzEyNSAtNzIuNzM0Mzc1IEMgMTAzLjgzNTkzOCAtNjguNjcxODc1IDEwMi4xNzU3ODEgLTY0LjY1NjI1IDEwMC40Njg3NSAtNjAuNjg3NSBDIDk5LjgyMDMxMiAtNTkuMjU3ODEyIDk5LjIwMzEyNSAtNTcuNzg1MTU2IDk4LjYwOTM3NSAtNTYuMjY1NjI1IEMgOTcuODI4MTI1IC01NC40NjA5MzggOTcuNTAzOTA2IC01My4yMjI2NTYgOTcuNjQwNjI1IC01Mi41NDY4NzUgQyA5Ny43NzM0MzggLTUxLjg3ODkwNiA5OC4yNDIxODggLTUxLjU2NjQwNiA5OS4wNDY4NzUgLTUxLjYwOTM3NSBDIDk5Ljg1OTM3NSAtNTEuNjYwMTU2IDEwMC44NDM3NSAtNTEuODk0NTMxIDEwMiAtNTIuMzEyNSBDIDEwMi4zNjMyODEgLTUyLjQwNjI1IDEwMi43NTM5MDYgLTUyLjUgMTAzLjE3MTg3NSAtNTIuNTkzNzUgQyAxMDcuNjQ4NDM4IC01My43NSAxMTIuMTI1IC01NC44Nzg5MDYgMTE2LjU5Mzc1IC01NS45ODQzNzUgQyAxMjQuNzE4NzUgLTU4LjAxNTYyNSAxMzIuODgyODEyIC02MC4wNDY4NzUgMTQxLjA5Mzc1IC02Mi4wNzgxMjUgQyAxNjEuMjA3MDMxIC02Ni44MjgxMjUgMTgxLjQ2MDkzOCAtNzAuODgyODEyIDIwMS44NTkzNzUgLTc0LjI1IEMgMjA1LjQ5MjE4OCAtNzQuODUxNTYyIDIwOC42NzU3ODEgLTc2LjI1NzgxMiAyMTEuNDA2MjUgLTc4LjQ2ODc1IEMgMjE3LjIxODc1IC04Mi44NTE1NjIgMjIyLjk1NzAzMSAtODguMDA3ODEyIDIyOC42MjUgLTkzLjkzNzUgQyAyMzQuMzAwNzgxIC05OS44NjMyODEgMjM4Ljk5MjE4OCAtMTA2LjI1IDI0Mi43MDMxMjUgLTExMy4wOTM3NSBDIDI0Ni40MjE4NzUgLTExOS45NDUzMTIgMjQ4LjA5Mzc1IC0xMjYuOTg0Mzc1IDI0Ny43MTg3NSAtMTM0LjIwMzEyNSBDIDI0Ny4zNTE1NjIgLTE0MS40Mjk2ODggMjQ0LjAzNTE1NiAtMTQ4LjU5NzY1NiAyMzcuNzY1NjI1IC0xNTUuNzAzMTI1IEMgMjMzLjcwMzEyNSAtMTU5Ljk0MTQwNiAyMjkuMDg1OTM4IC0xNjMuNDkyMTg4IDIyMy45MjE4NzUgLTE2Ni4zNTkzNzUgQyAyMTMuMDM1MTU2IC0xNzIuMjEwOTM4IDE5OS45NTcwMzEgLTE3Ni41MDc4MTIgMTg0LjY4NzUgLTE3OS4yNSBDIDE2OS40MTQwNjIgLTE4MiAxNTMuMDUwNzgxIC0xODMuNDUzMTI1IDEzNS41OTM3NSAtMTgzLjYwOTM3NSBDIDExOC4xMzI4MTIgLTE4My43NzM0MzggMTAwLjY0ODQzOCAtMTgyLjg5MDYyNSA4My4xNDA2MjUgLTE4MC45NTMxMjUgQyA2NS42Mjg5MDYgLTE3OS4wMTU2MjUgNDkuMjM4MjgxIC0xNzYuMzI4MTI1IDMzLjk2ODc1IC0xNzIuODkwNjI1IEMgMTguNzA3MDMxIC0xNjkuNDUzMTI1IDUuNjA5Mzc1IC0xNjUuNTM5MDYyIC01LjMyODEyNSAtMTYxLjE1NjI1IEMgLTE0Ljc4NTE1NiAtMTU3LjQyNTc4MSAtMjMuNzgxMjUgLTE1Mi44MTY0MDYgLTMyLjMxMjUgLTE0Ny4zMjgxMjUgQyAtMzUuNzY5NTMxIC0xNDUuMjAzMTI1IC0zOS4wMTk1MzEgLTE0Mi44NjcxODggLTQyLjA2MjUgLTE0MC4zMjgxMjUgQyAtNDUuMTEzMjgxIC0xMzcuNzk2ODc1IC00Ny44MzU5MzggLTEzNC44OTA2MjUgLTUwLjIzNDM3NSAtMTMxLjYwOTM3NSBDIC01MS4xNjAxNTYgLTEzMC4xNzk2ODggLTUyLjM4MjgxMiAtMTI5LjQyMTg3NSAtNTMuOTA2MjUgLTEyOS4zMjgxMjUgQyAtNTQuMjI2NTYyIC0xMjkuMzI4MTI1IC01NC41OTc2NTYgLTEyOS4zMjgxMjUgLTU1LjAxNTYyNSAtMTI5LjMyODEyNSBDIC01NS4xMDkzNzUgLTEyOS4zMjgxMjUgLTU1LjIwMzEyNSAtMTI5LjMyODEyNSAtNTUuMjk2ODc1IC0xMjkuMzI4MTI1IEMgLTU1Ljg5MDYyNSAtMTI5LjMyODEyNSAtNTYuNDYwOTM4IC0xMjkuNDA2MjUgLTU3LjAxNTYyNSAtMTI5LjU2MjUgQyAtNTcuNTY2NDA2IC0xMjkuNzI2NTYyIC01OC4wMDM5MDYgLTEzMC4wNjY0MDYgLTU4LjMyODEyNSAtMTMwLjU3ODEyNSBDIC01OC41MTU2MjUgLTEzMC45OTIxODggLTU4LjYwOTM3NSAtMTMxLjQyMTg3NSAtNTguNjA5Mzc1IC0xMzEuODU5Mzc1IEMgLTU4LjYwOTM3NSAtMTMyLjI5Njg3NSAtNTguNTYyNSAtMTMyLjY3NTc4MSAtNTguNDY4NzUgLTEzMyBDIC01Ny42ODc1IC0xMzQuODQzNzUgLTU2LjYyNSAtMTM2LjQ2ODc1IC01NS4yODEyNSAtMTM3Ljg3NSBDIC01My45NDUzMTIgLTEzOS4yODEyNSAtNTIuNTg1OTM4IC0xNDAuNjU2MjUgLTUxLjIwMzEyNSAtMTQyIEMgLTQ3LjUxNTYyNSAtMTQ1LjEzMjgxMiAtNDMuNjc1NzgxIC0xNDcuOTY4NzUgLTM5LjY4NzUgLTE1MC41IEMgLTM1LjY5NTMxMiAtMTUzLjAzOTA2MiAtMzEuNjAxNTYyIC0xNTUuNDIxODc1IC0yNy40MDYyNSAtMTU3LjY0MDYyNSBDIC0xNi42NTYyNSAtMTYzLjM1OTM3NSAtMi45MTAxNTYgLTE2OC41IDEzLjgyODEyNSAtMTczLjA2MjUgQyAzMC41NzgxMjUgLTE3Ny42MzI4MTIgNDguOTcyNjU2IC0xODEuMzE2NDA2IDY5LjAxNTYyNSAtMTg0LjEwOTM3NSBDIDg5LjA2NjQwNiAtMTg2Ljg5ODQzOCAxMDkuMjY1NjI1IC0xODguNDIxODc1IDEyOS42MDkzNzUgLTE4OC42NzE4NzUgQyAxNDkuOTUzMTI1IC0xODguOTIxODc1IDE2OS4wMDM5MDYgLTE4Ny41NjY0MDYgMTg2Ljc2NTYyNSAtMTg0LjYwOTM3NSBDIDIwNC41MjM0MzggLTE4MS42NjAxNTYgMjE5LjY1NjI1IC0xNzYuNzI2NTYyIDIzMi4xNTYyNSAtMTY5LjgxMjUgQyAyMzcuNzM4MjgxIC0xNjYuNzY5NTMxIDI0Mi43NDIxODggLTE2Mi44NzUgMjQ3LjE3MTg3NSAtMTU4LjEyNSBDIDI1My4zOTg0MzggLTE1MS4xMDE1NjIgMjU2Ljk0MTQwNiAtMTQ0LjE2NDA2MiAyNTcuNzk2ODc1IC0xMzcuMzEyNSBDIDI1OC42NDg0MzggLTEzMC40Njg3NSAyNTcuNzAzMTI1IC0xMjMuODI4MTI1IDI1NC45NTMxMjUgLTExNy4zOTA2MjUgQyAyNTIuMjEwOTM4IC0xMTAuOTYwOTM4IDI0OC40Mjk2ODggLTEwNC44MjgxMjUgMjQzLjYwOTM3NSAtOTguOTg0Mzc1IEMgMjM4Ljc4NTE1NiAtOTMuMTQ4NDM4IDIzMy44MzU5MzggLTg3LjY5NTMxMiAyMjguNzY1NjI1IC04Mi42MjUgQyAyMjguMTcxODc1IC04Mi4xMTMyODEgMjI3LjU3MDMxMiAtODEuNDc2NTYyIDIyNi45Njg3NSAtODAuNzE4NzUgQyAyMjYuMzc1IC03OS45NTcwMzEgMjI2LjExNzE4OCAtNzkuMzIwMzEyIDIyNi4yMDMxMjUgLTc4LjgxMjUgQyAyMjYuMjk2ODc1IC03OC4zMTI1IDIyNy4wNjI1IC03OC4xNDg0MzggMjI4LjUgLTc4LjMyODEyNSBDIDI0NS41MTk1MzEgLTgxLjA5NzY1NiAyNjIuNTAzOTA2IC04My4xODc1IDI3OS40NTMxMjUgLTg0LjU5Mzc1IEMgMjk2LjQxMDE1NiAtODYgMzEzLjQ2ODc1IC04Ni45NTcwMzEgMzMwLjYyNSAtODcuNDY4NzUgQyAzMzEuMTMyODEyIC04Ny40Njg3NSAzMzEuNTk3NjU2IC04Ny40Njg3NSAzMzIuMDE1NjI1IC04Ny40Njg3NSBMIDMzMi4xNTYyNSAtODcuNDY4NzUgQyAzMzMuNTgyMDMxIC04Ny40Njg3NSAzMzUuMDA3ODEyIC04Ny4zNzUgMzM2LjQzNzUgLTg3LjE4NzUgWiBNIDY4LjUgLTEzLjM1OTM3NSBDIDY4Ljg3NSAtMTQuMjczNDM4IDY5LjU2NjQwNiAtMTUuNTg1OTM4IDcwLjU3ODEyNSAtMTcuMjk2ODc1IEMgNzIuMDE1NjI1IC0yMC4wMTU2MjUgNzMuNTE1NjI1IC0yMy4wMjM0MzggNzUuMDc4MTI1IC0yNi4zMjgxMjUgQyA3Ni42NDg0MzggLTI5LjYyODkwNiA3Ny43ODkwNjIgLTMyLjUyMzQzOCA3OC41IC0zNS4wMTU2MjUgQyA3OS4yMTg3NSAtMzcuNTAzOTA2IDc4Ljg2MzI4MSAtMzguODYzMjgxIDc3LjQzNzUgLTM5LjA5Mzc1IEMgNzYuNTYyNSAtMzguOTU3MDMxIDc1LjcwNzAzMSAtMzguNzUgNzQuODc1IC0zOC40Njg3NSBDIDc0LjY4NzUgLTM4LjQ2ODc1IDc0LjQyOTY4OCAtMzguNDI1NzgxIDc0LjEwOTM3NSAtMzguMzQzNzUgQyA3MC44Nzg5MDYgLTM3LjMyMDMxMiA2Ny42Mjg5MDYgLTM2LjM1MTU2MiA2NC4zNTkzNzUgLTM1LjQzNzUgQyA1Ni41NTQ2ODggLTMzLjE2NDA2MiA0OC43MzQzNzUgLTMwLjc2NTYyNSA0MC44OTA2MjUgLTI4LjIzNDM3NSBDIDQwLjUyMzQzOCAtMjguMTQwNjI1IDQwLjEzMjgxMiAtMjggMzkuNzE4NzUgLTI3LjgxMjUgQyAyNS42OTUzMTIgLTIzLjUxOTUzMSAxMS44Nzg5MDYgLTE4LjU4NTkzOCAtMS43MzQzNzUgLTEzLjAxNTYyNSBDIC04LjYwOTM3NSAtMTAuMTkxNDA2IC0xNS4xMzI4MTIgLTYuNzUzOTA2IC0yMS4zMTI1IC0yLjcwMzEyNSBDIC0yMy42NjQwNjIgLTEuMzU5Mzc1IC0yNS42MDE1NjIgMC40MTQwNjIgLTI3LjEyNSAyLjYyNSBDIC0yNy43MjY1NjIgMy41NTA3ODEgLTI3Ljg5ODQzOCA0LjM5NDUzMSAtMjcuNjQwNjI1IDUuMTU2MjUgQyAtMjcuMzkwNjI1IDUuOTE0MDYyIC0yNi43NTM5MDYgNi41MDM5MDYgLTI1LjczNDM3NSA2LjkyMTg3NSBDIC0yMy42MTcxODggNy42MDkzNzUgLTIxLjQ1MzEyNSA3Ljk1MzEyNSAtMTkuMjM0Mzc1IDcuOTUzMTI1IEMgLTE3LjI5Njg3NSA3Ljk1MzEyNSAtMTUuMzU5Mzc1IDcuODYzMjgxIC0xMy40MjE4NzUgNy42ODc1IEMgLTEzLjMyODEyNSA3LjY4NzUgLTEzLjI4MTI1IDcuNjg3NSAtMTMuMjgxMjUgNy42ODc1IEMgLTMuMjI2NTYyIDYuNjY0MDYyIDYuNjY0MDYyIDUuMDIzNDM4IDE2LjQwNjI1IDIuNzY1NjI1IEMgMzEuODUxNTYyIC0wLjY0ODQzOCA0Ny4xMTcxODggLTQuNjQwNjI1IDYyLjIwMzEyNSAtOS4yMDMxMjUgQyA2Mi40NDE0MDYgLTkuMzM1OTM4IDYyLjYwMTU2MiAtOS40MDYyNSA2Mi42ODc1IC05LjQwNjI1IEMgNjMuODk0NTMxIC05LjY4NzUgNjUuMDAzOTA2IC0xMC4xMDE1NjIgNjYuMDE1NjI1IC0xMC42NTYyNSBDIDY3LjAyMzQzOCAtMTEuMjA3MDMxIDY3Ljg1MTU2MiAtMTIuMTA5Mzc1IDY4LjUgLTEzLjM1OTM3NSBaIE0gODEuNDUzMTI1IC0xNi4wNDY4NzUgQyA5MC41NzgxMjUgLTE4LjM5ODQzOCAxMDMuMDAzOTA2IC0yMi43OTY4NzUgMTE4LjczNDM3NSAtMjkuMjM0Mzc1IEMgMTM0LjQ3MjY1NiAtMzUuNjcxODc1IDE0OS41OTc2NTYgLTQyLjQ3MjY1NiAxNjQuMTA5Mzc1IC00OS42NDA2MjUgQyAxNzguNjE3MTg4IC01Ni44MTY0MDYgMTg4LjUgLTYyLjczODI4MSAxOTMuNzUgLTY3LjQwNjI1IEMgMTkzLjA2MjUgLTY3LjQwNjI1IDE5Mi40NjA5MzggLTY3LjQwNjI1IDE5MS45NTMxMjUgLTY3LjQwNjI1IEMgMTkxLjcyMjY1NiAtNjcuNDA2MjUgMTkxLjU2MjUgLTY3LjQwNjI1IDE5MS40Njg3NSAtNjcuNDA2MjUgQyAxNTkuNTkzNzUgLTYxLjA4MjAzMSAxMjguMDM5MDYyIC01My41NjI1IDk2LjgxMjUgLTQ0Ljg0Mzc1IEMgOTQuMDM5MDYyIC00NC4wNjI1IDkyLjE0ODQzOCAtNDIuMzk4NDM4IDkxLjE0MDYyNSAtMzkuODU5Mzc1IEMgODkuMjQyMTg4IC0zNS43OTY4NzUgODcuMzc1IC0zMS43ODEyNSA4NS41MzEyNSAtMjcuODEyNSBDIDg0LjEwMTU2MiAtMjQuODYzMjgxIDgyLjY3MTg3NSAtMjEuODY3MTg4IDgxLjIzNDM3NSAtMTguODI4MTI1IEMgODEuMDU0Njg4IC0xOC40MTAxNTYgODAuOTQxNDA2IC0xNy45NDUzMTIgODAuODkwNjI1IC0xNy40Mzc1IEMgODAuODQ3NjU2IC0xNi45MjU3ODEgODEuMDM1MTU2IC0xNi40NjA5MzggODEuNDUzMTI1IC0xNi4wNDY4NzUgWiBNIDgxLjQ1MzEyNSAtMTYuMDQ2ODc1ICIvPjwvZz48L2c+PC9nPjxnIGZpbGw9IiNmZmZmZmYiIGZpbGwtb3BhY2l0eT0iMSI+PGcgdHJhbnNmb3JtPSJ0cmFuc2xhdGUoNzcxLjE1MjA2OSwgODgxLjQ3NjUzNikiPjxnPjxwYXRoIGQ9Ik0gMS43MzQzNzUgLTEyLjI1IEMgLTIuNjQ4NDM4IC0xMi4yNSAtNC44NDM3NSAtMTQuNTMxMjUgLTQuODQzNzUgLTE5LjA5Mzc1IEMgLTQuODQzNzUgLTI0LjY3NTc4MSAtMS4yMjI2NTYgLTM0LjUyMzQzOCA2LjAxNTYyNSAtNDguNjQwNjI1IEMgNi4yOTY4NzUgLTQ5LjI0MjE4OCA2LjgwNDY4OCAtNDkuNTQ2ODc1IDcuNTQ2ODc1IC00OS41NDY4NzUgQyAxMC40NTMxMjUgLTQ5LjU0Njg3NSAxMS45MDYyNSAtNDguMzk0NTMxIDExLjkwNjI1IC00Ni4wOTM3NSBDIDExLjkwNjI1IC00NS4yNTc4MTIgMTEuNjQ4NDM4IC00NC4yNDIxODggMTEuMTQwNjI1IC00My4wNDY4NzUgQyAxMC45NTMxMjUgLTQyLjcyMjY1NiA4LjUzMTI1IC0zNi42Mjg5MDYgMy44NzUgLTI0Ljc2NTYyNSBDIDMuMTMyODEyIC0yMi44MjgxMjUgMi43NjU2MjUgLTIxLjM5ODQzOCAyLjc2NTYyNSAtMjAuNDg0Mzc1IEMgMi43NjU2MjUgLTE5LjQ2MDkzOCAzLjIyNjU2MiAtMTguOTUzMTI1IDQuMTU2MjUgLTE4Ljk1MzEyNSBDIDcuNTE5NTMxIC0xOC45NTMxMjUgMTYuMzUxNTYyIC0yNy4zMjgxMjUgMzAuNjU2MjUgLTQ0LjA3ODEyNSBDIDMyLjUgLTQ2LjMzNTkzOCAzNC4zMjAzMTIgLTQ3LjQ2ODc1IDM2LjEyNSAtNDcuNDY4NzUgQyAzOC43NSAtNDcuNDY4NzUgNDAuMDYyNSAtNDYuNSA0MC4wNjI1IC00NC41NjI1IEMgNDAuMDYyNSAtNDMuODIwMzEyIDM5LjI1MzkwNiAtNDEuMDMxMjUgMzcuNjQwNjI1IC0zNi4xODc1IEMgMzUuNDI5Njg4IC0yOS41OTM3NSAzNC4zMjgxMjUgLTI1Ljc4NTE1NiAzNC4zMjgxMjUgLTI0Ljc2NTYyNSBDIDM0LjMyODEyNSAtMjMuMjQyMTg4IDM0LjgzMjAzMSAtMjIuNDg0Mzc1IDM1Ljg0Mzc1IC0yMi40ODQzNzUgQyAzOC4zODI4MTIgLTIyLjQ4NDM3NSA0NS43ODkwNjIgLTI3LjAwMzkwNiA1OC4wNjI1IC0zNi4wNDY4NzUgQyA1OC43NSAtMzYuNjQ4NDM4IDU5LjM0NzY1NiAtMzYuOTUzMTI1IDU5Ljg1OTM3NSAtMzYuOTUzMTI1IEMgNjEuMDE1NjI1IC0zNi45NTMxMjUgNjEuNTkzNzUgLTM1Ljk4NDM3NSA2MS41OTM3NSAtMzQuMDQ2ODc1IEMgNjEuNTkzNzUgLTMzLjUzNTE1NiA2MS40Mjk2ODggLTMzLjExNzE4OCA2MS4xMDkzNzUgLTMyLjc5Njg3NSBDIDU0LjU5NzY1NiAtMjcuMjEwOTM4IDQ5LjA2MjUgLTIyLjk2ODc1IDQ0LjUgLTIwLjA2MjUgQyA0MC4zNDM3NSAtMTcuMzgyODEyIDM2LjY0ODQzOCAtMTYuMDQ2ODc1IDMzLjQyMTg3NSAtMTYuMDQ2ODc1IEwgMzIuNDUzMTI1IC0xNi4wNDY4NzUgQyAyNy43MDMxMjUgLTE3LjA2NjQwNiAyNS4zMjgxMjUgLTIwLjc4MTI1IDI1LjMyODEyNSAtMjcuMTg3NSBDIDIwLjI1MzkwNiAtMjIuNzE4NzUgMTYuMDQ2ODc1IC0xOS4xMDkzNzUgMTIuNzAzMTI1IC0xNi4zNTkzNzUgQyA5LjM1OTM3NSAtMTMuNjE3MTg4IDUuNzAzMTI1IC0xMi4yNSAxLjczNDM3NSAtMTIuMjUgWiBNIDEuNzM0Mzc1IC0xMi4yNSAiLz48L2c+PC9nPjwvZz48ZyBmaWxsPSIjZmZmZmZmIiBmaWxsLW9wYWNpdHk9IjEiPjxnIHRyYW5zZm9ybT0idHJhbnNsYXRlKDg0OS4yODg2MTQsIDg4MS40NzY1MzYpIj48Zz48cGF0aCBkPSJNIDMzLjIxODc1IC00Mi40ODQzNzUgQyAzMi44MDA3ODEgLTM5LjMwNDY4OCAzMS4zMDA3ODEgLTM3LjIzNDM3NSAyOC43MTg3NSAtMzYuMjY1NjI1IEMgMjYuMTMyODEyIC0zNS4yOTY4NzUgMjUuMjg5MDYyIC0zNi41NjI1IDI2LjE4NzUgLTQwLjA2MjUgQyAyNy4wOTM3NSAtNDMuNTcwMzEyIDI1LjUxNTYyNSAtNDQuNDYwOTM4IDIxLjQ1MzEyNSAtNDIuNzM0Mzc1IEMgMTcuMzkwNjI1IC00MS4wMDM5MDYgMTQuMDQ2ODc1IC0zOC44MjAzMTIgMTEuNDIxODc1IC0zNi4xODc1IEMgNy4zNTkzNzUgLTMyLjAzOTA2MiAzLjc1NzgxMiAtMjcuNTY2NDA2IDAuNjI1IC0yMi43NjU2MjUgQyAwLjMwMDc4MSAtMjIuMzQ3NjU2IDAuMDQ2ODc1IC0yMi4wMDM5MDYgLTAuMTQwNjI1IC0yMS43MzQzNzUgQyAtMS4wNTQ2ODggLTIwLjM5MDYyNSAtMS45NzY1NjIgLTE5LjExNzE4OCAtMi45MDYyNSAtMTcuOTIxODc1IEMgLTMuNTA3ODEyIC0xNy4wODU5MzggLTQuMjEwOTM4IC0xNi41NjY0MDYgLTUuMDE1NjI1IC0xNi4zNTkzNzUgQyAtNS44MjgxMjUgLTE2LjE0ODQzOCAtNi42NDQ1MzEgLTE2LjExNzE4OCAtNy40Njg3NSAtMTYuMjY1NjI1IEMgLTguMjU3ODEyIC0xNi4zNTkzNzUgLTguODU5Mzc1IC0xNi42NTYyNSAtOS4yNjU2MjUgLTE3LjE1NjI1IEMgLTkuNjc5Njg4IC0xNy42NjQwNjIgLTkuNzI2NTYyIC0xOC4yNjU2MjUgLTkuNDA2MjUgLTE4Ljk1MzEyNSBDIC04LjkwNjI1IC0yMC4yMDMxMjUgLTguMzA0Njg4IC0yMS40NzI2NTYgLTcuNjA5Mzc1IC0yMi43NjU2MjUgQyAtMy40NjA5MzggLTMwLjQ3MjY1NiAwLjc1MzkwNiAtMzguMjAzMTI1IDUuMDQ2ODc1IC00NS45NTMxMjUgQyA1LjE0MDYyNSAtNDYuMDQ2ODc1IDUuMTg3NSAtNDYuMTMyODEyIDUuMTg3NSAtNDYuMjE4NzUgQyA1Ljc4OTA2MiAtNDcuNDI1NzgxIDYuNTAzOTA2IC00OC41MzUxNTYgNy4zMjgxMjUgLTQ5LjU0Njg3NSBDIDguMjUzOTA2IC01MC41NTQ2ODggOS4zMTY0MDYgLTUwLjk2ODc1IDEwLjUxNTYyNSAtNTAuNzgxMjUgQyAxMS43MTA5MzggLTUwLjYwMTU2MiAxMi41MTk1MzEgLTQ5Ljg5MDYyNSAxMi45Mzc1IC00OC42NDA2MjUgQyAxMy40NDUzMTIgLTQ3LjAyMzQzOCAxMy44ODI4MTIgLTQ2LjExMzI4MSAxNC4yNSAtNDUuOTA2MjUgQyAxNC42MjUgLTQ1LjcwNzAzMSAxNS40NTcwMzEgLTQ1Ljg1OTM3NSAxNi43NSAtNDYuMzU5Mzc1IEMgMTkuNTA3ODEyIC00Ny4zNzg5MDYgMjIuMjAzMTI1IC00OC4wOTM3NSAyNC44MjgxMjUgLTQ4LjUgQyAyNy40NjA5MzggLTQ4LjkxNDA2MiAyOS42MjUgLTQ4LjgxMjUgMzEuMzEyNSAtNDguMTg3NSBDIDMzIC00Ny41NzAzMTIgMzMuNjMyODEyIC00NS42NzE4NzUgMzMuMjE4NzUgLTQyLjQ4NDM3NSBaIE0gMzMuMjE4NzUgLTQyLjQ4NDM3NSAiLz48L2c+PC9nPjwvZz48ZyBmaWxsPSIjZmZmZmZmIiBmaWxsLW9wYWNpdHk9IjEiPjxnIHRyYW5zZm9ybT0idHJhbnNsYXRlKDkwNS4xNDU2NjYsIDg4MS40NzY1MzYpIj48Zz48cGF0aCBkPSJNIDUwLjIwMzEyNSAtMzUuMjUgQyA1MS4yODUxNTYgLTM0LjYzMjgxMiA1MS4zNjcxODggLTMzLjEyNSA1MC40NTMxMjUgLTMwLjcxODc1IEMgNDkuMTA5Mzc1IC0yOC45Njg3NSA0Ny42NzU3ODEgLTI3LjMzMjAzMSA0Ni4xNTYyNSAtMjUuODEyNSBDIDQ0LjYzMjgxMiAtMjQuMjg5MDYyIDQyLjk3MjY1NiAtMjIuOTI5Njg4IDQxLjE3MTg3NSAtMjEuNzM0Mzc1IEMgNDEuMDM1MTU2IC0yMS43MzQzNzUgNDAuOTY4NzUgLTIxLjY4NzUgNDAuOTY4NzUgLTIxLjU5Mzc1IEMgMzkuNzY5NTMxIC0yMC43NTc4MTIgMzguNSAtMjAuMDM5MDYyIDM3LjE1NjI1IC0xOS40Mzc1IEMgMjYuMTMyODEyIC0xNS40NzY1NjIgMjAuNTA3ODEyIC0xNy44MTI1IDIwLjI4MTI1IC0yNi40Mzc1IEMgMTUuODAwNzgxIC0yMi41NjI1IDEyLjgwMDc4MSAtMjAuMTg3NSAxMS4yODEyNSAtMTkuMzEyNSBDIDcuNjMyODEyIC0xNy4xMzI4MTIgMy42OTE0MDYgLTE2LjE2NDA2MiAtMC41NDY4NzUgLTE2LjQwNjI1IEMgLTMuNjkxNDA2IC0xNi41ODIwMzEgLTUuODI4MTI1IC0xNy41MzUxNTYgLTYuOTUzMTI1IC0xOS4yNjU2MjUgQyAtOC4wODU5MzggLTIwLjk5MjE4OCAtNy45ODQzNzUgLTIzLjMzNTkzOCAtNi42NDA2MjUgLTI2LjI5Njg3NSBDIC00LjYwOTM3NSAtMzAuOTUzMTI1IC0xLjcyNjU2MiAtMzUuMTAxNTYyIDIgLTM4Ljc1IEMgNi4zODI4MTIgLTQyLjgxMjUgMTEuMjUzOTA2IC00Ni4wNjY0MDYgMTYuNjA5Mzc1IC00OC41MTU2MjUgQyAxOS40NjA5MzggLTQ5Ljk0MTQwNiAyMi40NjA5MzggLTUwLjQ5MjE4OCAyNS42MDkzNzUgLTUwLjE3MTg3NSBDIDI4Ljc0MjE4OCAtNDkuOTg0Mzc1IDMwLjYzMjgxMiAtNDguMjA3MDMxIDMxLjI4MTI1IC00NC44NDM3NSBDIDMxLjU1MDc4MSAtNDMuODIwMzEyIDMxLjI5Njg3NSAtNDIuOTIxODc1IDMwLjUxNTYyNSAtNDIuMTQwNjI1IEMgMjkuNTAzOTA2IC00MS4yMjI2NTYgMjguMzI4MTI1IC00MS4wMTU2MjUgMjYuOTg0Mzc1IC00MS41MTU2MjUgQyAyNi44OTA2MjUgLTQxLjUxNTYyNSAyNi43NTc4MTIgLTQxLjUzNTE1NiAyNi41OTM3NSAtNDEuNTc4MTI1IEMgMjYuNDM3NSAtNDEuNjI4OTA2IDI2LjMxMjUgLTQxLjcwMzEyNSAyNi4yMTg3NSAtNDEuNzk2ODc1IEMgMjQuODgyODEyIC00My42NDA2MjUgMjMuNTM1MTU2IC00NC40MTAxNTYgMjIuMTcxODc1IC00NC4xMDkzNzUgQyAyMC44MTY0MDYgLTQzLjgxNjQwNiAxOS4zNzg5MDYgLTQzLjIwNzAzMSAxNy44NTkzNzUgLTQyLjI4MTI1IEMgMTAuNzUzOTA2IC0zOC4xMjUgNS40Njg3NSAtMzIuMzMyMDMxIDIgLTI0LjkwNjI1IEMgMS44MjAzMTIgLTI0LjU4MjAzMSAxLjcwNzAzMSAtMjQuMjIyNjU2IDEuNjU2MjUgLTIzLjgyODEyNSBDIDEuNjEzMjgxIC0yMy40NDE0MDYgMS43MjY1NjIgLTIzLjEzMjgxMiAyIC0yMi45MDYyNSBDIDIuODMyMDMxIC0yMi42MjUgMy43NTM5MDYgLTIyLjY3OTY4OCA0Ljc2NTYyNSAtMjMuMDc4MTI1IEMgNS43ODUxNTYgLTIzLjQ3MjY1NiA2LjgwMDc4MSAtMjQuMDUwNzgxIDcuODEyNSAtMjQuODEyNSBDIDguODMyMDMxIC0yNS41NzAzMTIgOS42ODc1IC0yNi4yMDMxMjUgMTAuMzc1IC0yNi43MDMxMjUgQyAxMC40Njg3NSAtMjYuODQ3NjU2IDEwLjUxNTYyNSAtMjYuOTIxODc1IDEwLjUxNTYyNSAtMjYuOTIxODc1IEMgMTMuODc4OTA2IC0yOS43MzQzNzUgMTcuMTc1NzgxIC0zMi42MTMyODEgMjAuNDA2MjUgLTM1LjU2MjUgQyAyMS44NDM3NSAtMzcuMDkzNzUgMjMuNjE3MTg4IC0zNy45NDUzMTIgMjUuNzM0Mzc1IC0zOC4xMjUgQyAyOC43ODUxNTYgLTM4LjEyNSAzMC4wNTQ2ODggLTM2Ljc2NTYyNSAyOS41NDY4NzUgLTM0LjA0Njg3NSBDIDI5LjI2NTYyNSAtMzMuMDIzNDM4IDI4Ljk2MDkzOCAtMzIuMDA3ODEyIDI4LjY0MDYyNSAtMzEgQyAyNy40NDE0MDYgLTI2LjYxMzI4MSAyNy4zOTQ1MzEgLTI0LjAzOTA2MiAyOC41IC0yMy4yODEyNSBDIDI5LjYxMzI4MSAtMjIuNTE5NTMxIDMxLjMxMjUgLTIyLjUxOTUzMSAzMy41OTM3NSAtMjMuMjgxMjUgQyAzNS44NzUgLTI0LjAzOTA2MiAzOC4xNTYyNSAtMjUuNDkyMTg4IDQwLjQzNzUgLTI3LjY0MDYyNSBDIDQyLjcyNjU2MiAtMjkuNzg1MTU2IDQ0LjY1NjI1IC0zMS43NDIxODggNDYuMjE4NzUgLTMzLjUxNTYyNSBDIDQ3Ljc4OTA2MiAtMzUuMjk2ODc1IDQ5LjExNzE4OCAtMzUuODc1IDUwLjIwMzEyNSAtMzUuMjUgWiBNIDUwLjIwMzEyNSAtMzUuMjUgIi8+PC9nPjwvZz48L2c+PGcgZmlsbD0iI2ZmZmZmZiIgZmlsbC1vcGFjaXR5PSIxIj48ZyB0cmFuc2Zvcm09InRyYW5zbGF0ZSg5NzIuMjgwODIxLCA4ODEuNDc2NTM2KSI+PGcvPjwvZz48L2c+PGcgZmlsbD0iI2ZmZmZmZiIgZmlsbC1vcGFjaXR5PSIxIj48ZyB0cmFuc2Zvcm09InRyYW5zbGF0ZSgxMDQ1Ljg1MDc2LCA4ODEuNDc2NTM2KSI+PGc+PHBhdGggZD0iTSAyODkuNzM0Mzc1IC0yNDEuOTg0Mzc1IEMgMzAyLjQyMTg3NSAtMjQzLjU5NzY1NiAzMTMuMzMyMDMxIC0yNDIuNDI5Njg4IDMyMi40Njg3NSAtMjM4LjQ4NDM3NSBDIDMzMS42MDE1NjIgLTIzNC41NDY4NzUgMzM4LjE0MDYyNSAtMjI4LjExMzI4MSAzNDIuMDc4MTI1IC0yMTkuMTg3NSBDIDM0Ni4wMjM0MzggLTIxMC4yNTc4MTIgMzQ2LjY4NzUgLTE5OS4wODIwMzEgMzQ0LjA2MjUgLTE4NS42NTYyNSBDIDM0Mi42MjUgLTE3OC40NTcwMzEgMzQwLjY0MDYyNSAtMTcxLjQ2ODc1IDMzOC4xMDkzNzUgLTE2NC42ODc1IEMgMzM3LjU5NzY1NiAtMTYzLjE2NDA2MiAzMzYuODY3MTg4IC0xNjEuNzg5MDYyIDMzNS45MjE4NzUgLTE2MC41NjI1IEMgMzM0Ljk3MjY1NiAtMTU5LjM0Mzc1IDMzMy42MjUgLTE1OC41MzEyNSAzMzEuODc1IC0xNTguMTI1IEMgMzMxLjI4MTI1IC0xNTcuOTM3NSAzMzAuNjc5Njg4IC0xNTcuODYzMjgxIDMzMC4wNzgxMjUgLTE1Ny45MDYyNSBDIDMyOS40NzI2NTYgLTE1Ny45NTcwMzEgMzI4Ljk2ODc1IC0xNTguMjgxMjUgMzI4LjU2MjUgLTE1OC44NzUgQyAzMjguMzIwMzEyIC0xNTkuMjg5MDYyIDMyOC4xNzk2ODggLTE1OS43NTM5MDYgMzI4LjE0MDYyNSAtMTYwLjI2NTYyNSBDIDMyOC4wOTc2NTYgLTE2MC43NzM0MzggMzI4LjExNzE4OCAtMTYxLjIzNDM3NSAzMjguMjAzMTI1IC0xNjEuNjQwNjI1IEMgMzMxLjE2MDE1NiAtMTY5LjM0NzY1NiAzMzMuMzUxNTYyIC0xNzcuMjE4NzUgMzM0Ljc4MTI1IC0xODUuMjUgQyAzMzYuOTA2MjUgLTE5Ni4xNzU3ODEgMzM2LjUyMzQzOCAtMjA1LjY0ODQzOCAzMzMuNjQwNjI1IC0yMTMuNjcxODc1IEMgMzMwLjc1MzkwNiAtMjIxLjcwMzEyNSAzMjUuNjc1NzgxIC0yMjcuNjQ0NTMxIDMxOC40MDYyNSAtMjMxLjUgQyAzMTEuMTQ0NTMxIC0yMzUuMzUxNTYyIDMwMS45Mjk2ODggLTIzNi40NzI2NTYgMjkwLjc2NTYyNSAtMjM0Ljg1OTM3NSBDIDI3NS4zNTkzNzUgLTIzMi4yMzQzNzUgMjU5Ljc4OTA2MiAtMjI2LjI5Njg3NSAyNDQuMDYyNSAtMjE3LjA0Njg3NSBDIDIyOC4zMzIwMzEgLTIwNy43OTY4NzUgMjEyLjc5Njg3NSAtMTk2LjI2OTUzMSAxOTcuNDUzMTI1IC0xODIuNDY4NzUgQyAxODIuMTE3MTg4IC0xNjguNjc1NzgxIDE2Ny4zNDc2NTYgLTE1My42NDA2MjUgMTUzLjE0MDYyNSAtMTM3LjM1OTM3NSBDIDEzOC45Mjk2ODggLTEyMS4wNzgxMjUgMTI1LjY2NDA2MiAtMTA0LjU4MjAzMSAxMTMuMzQzNzUgLTg3Ljg3NSBDIDEwMS4wMzEyNSAtNzEuMTc1NzgxIDkwLjA1MDc4MSAtNTUuMzQzNzUgODAuNDA2MjUgLTQwLjM3NSBDIDcwLjc2OTUzMSAtMjUuNDA2MjUgNjIuNzg5MDYyIC0xMi4yODkwNjIgNTYuNDY4NzUgLTEuMDMxMjUgQyA1Mi4yMTg3NSA2LjU3MDMxMiA0OC4yNjk1MzEgMTQuMzA0Njg4IDQ0LjYyNSAyMi4xNzE4NzUgQyA0MC45ODgyODEgMzAuMDM1MTU2IDM3LjQ4NDM3NSAzNy45ODQzNzUgMzQuMTA5Mzc1IDQ2LjAxNTYyNSBDIDMzLjYwOTM3NSA0Ny4xMTcxODggMzMuMTQ4NDM4IDQ4LjI1IDMyLjczNDM3NSA0OS40MDYyNSBDIDMxLjcxMDkzOCA1MS43MTg3NSAzMC42OTUzMTIgNTQuMDQ2ODc1IDI5LjY4NzUgNTYuMzkwNjI1IEMgMjguNjY0MDYyIDU4LjQyMTg3NSAyNy42MDE1NjIgNjAuNDA2MjUgMjYuNSA2Mi4zNDM3NSBDIDI0LjM3NSA2NS41NzAzMTIgMjEuMzc1IDY2Ljg0Mzc1IDE3LjUgNjYuMTU2MjUgQyAxNS43MDcwMzEgNjUuOTI1NzgxIDE0LjMyODEyNSA2NS4yMzQzNzUgMTMuMzU5Mzc1IDY0LjA3ODEyNSBDIDEyLjM5MDYyNSA2Mi45MjE4NzUgMTEuNzQyMTg4IDYxLjQ2ODc1IDExLjQyMTg3NSA1OS43MTg3NSBDIDExLjQyMTg3NSA1OS42MjUgMTEuNDIxODc1IDU5LjUzMTI1IDExLjQyMTg3NSA1OS40Mzc1IEMgMTAuNDkyMTg4IDU1LjE0NDUzMSA5Ljg0NzY1NiA1MC44Nzg5MDYgOS40ODQzNzUgNDYuNjQwNjI1IEMgOC42NDg0MzggMjcuOTUzMTI1IDguMDIzNDM4IDkuNjc5Njg4IDcuNjA5Mzc1IC04LjE3MTg3NSBDIDcuMTkxNDA2IC0yNy4wMzUxNTYgNi41MzUxNTYgLTQ1LjkxMDE1NiA1LjY0MDYyNSAtNjQuNzk2ODc1IEMgNC43NDIxODggLTgzLjY5MTQwNiAzLjAyMzQzOCAtMTAzLjAzNTE1NiAwLjQ4NDM3NSAtMTIyLjgyODEyNSBDIDAuMTYwMTU2IC0xMjQuNjI4OTA2IDAgLTEyNi41IDAgLTEyOC40Mzc1IEMgMC4wOTM3NSAtMTMwLjI4MTI1IDEuMDYyNSAtMTMxLjI5Njg3NSAyLjkwNjI1IC0xMzEuNDg0Mzc1IEMgNC42MTMyODEgLTEzMS41NjY0MDYgNS44ODI4MTIgLTEzMC44NDc2NTYgNi43MTg3NSAtMTI5LjMyODEyNSBDIDcuMDM5MDYyIC0xMjguNTQ2ODc1IDcuMjQyMTg4IC0xMjcuNzM4MjgxIDcuMzI4MTI1IC0xMjYuOTA2MjUgQyA3LjMyODEyNSAtMTI2LjgxMjUgNy4zMjgxMjUgLTEyNi42NDg0MzggNy4zMjgxMjUgLTEyNi40MjE4NzUgQyAxMC43OTY4NzUgLTEwMy40OTIxODggMTMuMTg3NSAtODEuNzUzOTA2IDE0LjUgLTYxLjIwMzEyNSBDIDE1LjgxMjUgLTQwLjY0ODQzOCAxNi44MTI1IC0xOS45MjU3ODEgMTcuNSAwLjk2ODc1IEMgMTguMDA3ODEyIDE0LjM0Mzc1IDE4LjYzMjgxMiAyOC4yMDcwMzEgMTkuMzc1IDQyLjU2MjUgQyAxOS4zNzUgNDIuNzM4MjgxIDE5LjM3NSA0Mi45ODgyODEgMTkuMzc1IDQzLjMxMjUgQyAxOS4zNzUgNDQuMTAxNTYyIDE5LjQ2MDkzOCA0NC45Mzc1IDE5LjY0MDYyNSA0NS44MTI1IEMgMTkuODI4MTI1IDQ2LjY4NzUgMjAuMzgyODEyIDQ3LjUxNTYyNSAyMS4zMTI1IDQ4LjI5Njg3NSBDIDIyLjIzODI4MSA0Ny41MTU2MjUgMjIuOTUzMTI1IDQ2LjY0MDYyNSAyMy40NTMxMjUgNDUuNjcxODc1IEMgMjMuOTYwOTM4IDQ0LjcwMzEyNSAyNC4zNzg5MDYgNDMuNzEwOTM4IDI0LjcwMzEyNSA0Mi43MDMxMjUgQyAyNC44OTA2MjUgNDIuMjg1MTU2IDI1LjAzMTI1IDQxLjg2NzE4OCAyNS4xMjUgNDEuNDUzMTI1IEMgMzEuMTEzMjgxIDI2LjQ1MzEyNSAzNy45OTIxODggMTEuODk0NTMxIDQ1Ljc2NTYyNSAtMi4yMTg3NSBDIDUzLjU0Njg3NSAtMTYuMzMyMDMxIDYxLjc1IC0zMC4xOTE0MDYgNzAuMzc1IC00My43OTY4NzUgQyA3Ni42NDQ1MzEgLTUzLjYyODkwNiA4NC4zNjcxODggLTY0Ljk4ODI4MSA5My41NDY4NzUgLTc3Ljg3NSBDIDEwMi43MzQzNzUgLTkwLjc2OTUzMSAxMTMuMDkzNzUgLTEwNC4zMjAzMTIgMTI0LjYyNSAtMTE4LjUzMTI1IEMgMTM2LjE1NjI1IC0xMzIuNzM4MjgxIDE0OC41MzkwNjIgLTE0Ni43MzgyODEgMTYxLjc4MTI1IC0xNjAuNTMxMjUgQyAxNzUuMDE5NTMxIC0xNzQuMzMyMDMxIDE4OC43NjU2MjUgLTE4Ny4wMTk1MzEgMjAzLjAxNTYyNSAtMTk4LjU5Mzc1IEMgMjE3LjI3MzQzOCAtMjEwLjE3NTc4MSAyMzEuNzE4NzUgLTIxOS44MTY0MDYgMjQ2LjM0Mzc1IC0yMjcuNTE1NjI1IEMgMjYwLjk2ODc1IC0yMzUuMjIyNjU2IDI3NS40Mjk2ODggLTI0MC4wNDY4NzUgMjg5LjczNDM3NSAtMjQxLjk4NDM3NSBaIE0gMjg5LjczNDM3NSAtMjQxLjk4NDM3NSAiLz48L2c+PC9nPjwvZz48ZyBmaWxsPSIjZmZmZmZmIiBmaWxsLW9wYWNpdHk9IjEiPjxnIHRyYW5zZm9ybT0idHJhbnNsYXRlKDExNzUuMzI3MDA1LCA4ODEuNDc2NTM2KSI+PGc+PHBhdGggZD0iTSAyNy41IC0yOS4xNTYyNSBDIDI1LjAzMTI1IC0yNi4yMjY1NjIgMjIuMTEzMjgxIC0yMy41MzkwNjIgMTguNzUgLTIxLjA5Mzc1IEMgMTUuMzgyODEyIC0xOC42NTYyNSAxMS41NzgxMjUgLTE3LjAwNzgxMiA3LjMyODEyNSAtMTYuMTU2MjUgQyAzLjA4NTkzOCAtMTUuMzAwNzgxIC0wLjIwNzAzMSAtMTUuNjEzMjgxIC0yLjU2MjUgLTE3LjA5Mzc1IEMgLTQuOTE0MDYyIC0xOC41NzAzMTIgLTUuMzc1IC0yMS44NDc2NTYgLTMuOTM3NSAtMjYuOTIxODc1IEMgLTIuMDkzNzUgLTMyLjE3OTY4OCAwLjQ0MTQwNiAtMzcuMTg3NSAzLjY3MTg3NSAtNDEuOTM3NSBDIDQuNDEwMTU2IC00Mi45NDUzMTIgNS40Njg3NSAtNDMuNjYwMTU2IDYuODQzNzUgLTQ0LjA3ODEyNSBDIDcuODYzMjgxIC00NC4zMDQ2ODggOC43NTM5MDYgLTQ0LjEzMjgxMiA5LjUxNTYyNSAtNDMuNTYyNSBDIDEwLjI3MzQzOCAtNDIuOTg4MjgxIDEwLjU2MjUgLTQyLjI1NzgxMiAxMC4zNzUgLTQxLjM3NSBDIDkuNjg3NSAtMzkuNzE4NzUgOC45MjU3ODEgLTM4LjA1NDY4OCA4LjA5Mzc1IC0zNi4zOTA2MjUgQyA3LjI1NzgxMiAtMzQuNzM0Mzc1IDYuNzA3MDMxIC0zMy42NDg0MzggNi40Mzc1IC0zMy4xNDA2MjUgQyA0LjgyMDMxMiAtMzAuMTkxNDA2IDMuNjkxNDA2IC0yNy4xMDE1NjIgMy4wNDY4NzUgLTIzLjg3NSBDIDMuMDQ2ODc1IC0yMi4wMzEyNSA1LjUxNTYyNSAtMjEuOTE0MDYyIDEwLjQ1MzEyNSAtMjMuNTMxMjUgQyAxNS4zOTA2MjUgLTI1LjE0NDUzMSAyMC4xODc1IC0yOC4xMDkzNzUgMjQuODQzNzUgLTMyLjQyMTg3NSBDIDI5LjUgLTM2LjczNDM3NSAzMS43MjI2NTYgLTM4IDMxLjUxNTYyNSAtMzYuMjE4NzUgQyAzMS4zMDQ2ODggLTM0LjQ0NTMxMiAyOS45Njg3NSAtMzIuMDkzNzUgMjcuNSAtMjkuMTU2MjUgWiBNIDE1LjQzNzUgLTUyLjMxMjUgQyAxNS4xOTUzMTIgLTUyLjEyNSAxNC43MTg3NSAtNTEuOTA2MjUgMTQgLTUxLjY1NjI1IEMgMTMuMjg5MDYyIC01MS40MDYyNSAxMi41MzEyNSAtNTEuMjIyNjU2IDExLjcxODc1IC01MS4xMDkzNzUgQyAxMC45MTQwNjIgLTUwLjk5MjE4OCAxMC4yODUxNTYgLTUxLjExNzE4OCA5LjgyODEyNSAtNTEuNDg0Mzc1IEMgOS4zNjcxODggLTUxLjg0NzY1NiA5LjM0Mzc1IC01Mi41ODU5MzggOS43NSAtNTMuNzAzMTI1IEMgMTAuNDg4MjgxIC01NS42NDA2MjUgMTEuMjU3ODEyIC01Ny4zMzIwMzEgMTIuMDYyNSAtNTguNzgxMjUgQyAxMi44NzUgLTYwLjIzODI4MSAxMy45MjU3ODEgLTYxLjg0Mzc1IDE1LjIxODc1IC02My41OTM3NSBDIDE2LjA1MDc4MSAtNjQuMzc1IDE2Ljk1MzEyNSAtNjQuODAwNzgxIDE3LjkyMTg3NSAtNjQuODc1IEMgMTguODkwNjI1IC02NC45NDUzMTIgMTkuNjk1MzEyIC02NC42OTE0MDYgMjAuMzQzNzUgLTY0LjEwOTM3NSBDIDIwLjk4ODI4MSAtNjMuNTM1MTU2IDIxLjE3MTg3NSAtNjIuNzM4MjgxIDIwLjg5MDYyNSAtNjEuNzE4NzUgQyAxOS44Nzg5MDYgLTU4LjA4MjAzMSAxOC4wNjI1IC01NC45NDUzMTIgMTUuNDM3NSAtNTIuMzEyNSBaIE0gMTUuNDM3NSAtNTIuMzEyNSAiLz48L2c+PC9nPjwvZz48ZyBmaWxsPSIjZmZmZmZmIiBmaWxsLW9wYWNpdHk9IjEiPjxnIHRyYW5zZm9ybT0idHJhbnNsYXRlKDEyMjMuNTczMDAyLCA4ODEuNDc2NTM2KSI+PGc+PHBhdGggZD0iTSA2MS40NTMxMjUgLTM2LjQyMTg3NSBDIDYyLjQyMTg3NSAtMzYuMTcxODc1IDYyLjkyNTc4MSAtMzUuODE2NDA2IDYyLjk2ODc1IC0zNS4zNTkzNzUgQyA2My4wMTk1MzEgLTM0Ljg5ODQzOCA2My4wNDY4NzUgLTM0LjY3MTg3NSA2My4wNDY4NzUgLTM0LjY3MTg3NSBDIDYxLjkyOTY4OCAtMzIuNzM0Mzc1IDYwLjY2MDE1NiAtMzAuOTU3MDMxIDU5LjIzNDM3NSAtMjkuMzQzNzUgQyA1NS45NjA5MzggLTI1LjY5NTMxMiA1Mi4xNTYyNSAtMjIuNzg5MDYyIDQ3LjgxMjUgLTIwLjYyNSBDIDQ1LjY5NTMxMiAtMTkuNDI1NzgxIDQzLjMwMDc4MSAtMTguNzgxMjUgNDAuNjI1IC0xOC42ODc1IEMgMzQuNDM3NSAtMTguNTkzNzUgMzEuNTk3NjU2IC0yMS41ODU5MzggMzIuMTA5Mzc1IC0yNy42NzE4NzUgQyAzMi4zMzU5MzggLTI4Ljk2MDkzOCAzMi42MzI4MTIgLTMwLjIzNDM3NSAzMyAtMzEuNDg0Mzc1IEMgMzMuMjM4MjgxIC0zMi4wODU5MzggMzMuMzk4NDM4IC0zMi42ODc1IDMzLjQ4NDM3NSAtMzMuMjgxMjUgQyAzNC4wODU5MzggLTM1LjUgMzQuMjU3ODEyIC0zNi43MzQzNzUgMzQgLTM2Ljk4NDM3NSBDIDMzLjc1IC0zNy4yNDIxODggMzMuMDIzNDM4IC0zNi42MDkzNzUgMzEuODI4MTI1IC0zNS4wNzgxMjUgQyAzMS41MDM5MDYgLTM0LjgwNDY4OCAzMS4yMDcwMzEgLTM0LjUwNzgxMiAzMC45Mzc1IC0zNC4xODc1IEMgMjkuMDgyMDMxIC0zMS45Njg3NSAyNy4xODc1IC0yOS43OTY4NzUgMjUuMjUgLTI3LjY3MTg3NSBDIDIxLjY5NTMxMiAtMjMuNjE3MTg4IDE3LjY0MDYyNSAtMjAuMjA3MDMxIDEzLjA3ODEyNSAtMTcuNDM3NSBDIDEwLjM1OTM3NSAtMTUuODIwMzEyIDcuNDcyNjU2IC0xNC45Njg3NSA0LjQyMTg3NSAtMTQuODc1IEMgLTAuNTU0Njg4IC0xNC42NDQ1MzEgLTMuMzQzNzUgLTE2LjkyOTY4OCAtMy45Mzc1IC0yMS43MzQzNzUgQyAtNC4xNzU3ODEgLTIzLjY3MTg3NSAtNC4wODU5MzggLTI1LjU4MjAzMSAtMy42NzE4NzUgLTI3LjQ2ODc1IEMgLTEuNjQwNjI1IC0zNS4zMTI1IDIuNDE0MDYyIC00MS4yODUxNTYgOC41IC00NS4zOTA2MjUgQyAxNC41OTM3NSAtNDkuNDkyMTg4IDIxLjU2MjUgLTUwLjk0NTMxMiAyOS40MDYyNSAtNDkuNzUgQyAzMS42MjUgLTQ5LjEwMTU2MiAzMy4yMzgyODEgLTQ5LjcwMzEyNSAzNC4yNSAtNTEuNTQ2ODc1IEMgMzQuNjY0MDYyIC01Mi4yNDIxODggMzUuMDgyMDMxIC01Mi45NjA5MzggMzUuNSAtNTMuNzAzMTI1IEMgMzcuNjI1IC01Ny4zNDc2NTYgMzkuNzAzMTI1IC02MC45ODgyODEgNDEuNzM0Mzc1IC02NC42MjUgQyA0NS41NTQ2ODggLTcxLjY0NDUzMSA0OS40MDYyNSAtNzguNzA3MDMxIDUzLjI4MTI1IC04NS44MTI1IEMgNTYuNDE0MDYyIC05MS4zODI4MTIgNTkuNTUwNzgxIC05Ny4wMDc4MTIgNjIuNjg3NSAtMTAyLjY4NzUgQyA2My42MTMyODEgLTEwNC40Mzc1IDY0LjYyODkwNiAtMTA2LjEyNSA2NS43MzQzNzUgLTEwNy43NSBDIDY2LjI0MjE4OCAtMTA4LjUzMTI1IDY2Ljg3ODkwNiAtMTA5IDY3LjY0MDYyNSAtMTA5LjE1NjI1IEMgNjguMzk4NDM4IC0xMDkuMzIwMzEyIDY5LjE5NTMxMiAtMTA5LjQwNjI1IDcwLjAzMTI1IC0xMDkuNDA2MjUgQyA3MC4yMTg3NSAtMTA5LjQwNjI1IDcwLjQyNTc4MSAtMTA5LjQwNjI1IDcwLjY1NjI1IC0xMDkuNDA2MjUgQyA3MS41NzAzMTIgLTEwOS40MDYyNSA3Mi4zMDQ2ODggLTEwOS4xNzE4NzUgNzIuODU5Mzc1IC0xMDguNzAzMTI1IEMgNzMuNDIxODc1IC0xMDguMjQyMTg4IDczLjUzOTA2MiAtMTA3LjYyNSA3My4yMTg3NSAtMTA2Ljg0Mzc1IEMgNzIuNjEzMjgxIC0xMDQuOTA2MjUgNzEuODk0NTMxIC0xMDMuMDYyNSA3MS4wNjI1IC0xMDEuMzEyNSBDIDY2LjgyMDMxMiAtOTIuODIwMzEyIDYyLjgyMDMxMiAtODQuMjI2NTYyIDU5LjA2MjUgLTc1LjUzMTI1IEMgNTUuMzAwNzgxIC02Ni44MzIwMzEgNTEuNTk3NjU2IC01OC4wNzgxMjUgNDcuOTUzMTI1IC00OS4yNjU2MjUgQyA0Ni43NTM5MDYgLTQ2LjIyMjY1NiA0NS41MzEyNSAtNDMuMTc5Njg4IDQ0LjI4MTI1IC00MC4xNDA2MjUgQyA0Mi43NTc4MTIgLTM2LjU4NTkzOCA0MS40OTIxODggLTMyLjk0MTQwNiA0MC40ODQzNzUgLTI5LjIwMzEyNSBDIDQwLjIwMzEyNSAtMjguMzY3MTg4IDQwLjA2MjUgLTI3LjU0Njg3NSA0MC4wNjI1IC0yNi43MzQzNzUgQyA0MC4wNjI1IC0yNS45Mjk2ODggNDAuNDU3MDMxIC0yNS4yMzQzNzUgNDEuMjUgLTI0LjY0MDYyNSBDIDQxLjc1IC0yNC4zMTY0MDYgNDIuMjczNDM4IC0yNC4yNTM5MDYgNDIuODI4MTI1IC0yNC40NTMxMjUgQyA0My4zOTA2MjUgLTI0LjY2MDE1NiA0My45OTIxODggLTI0LjkwNjI1IDQ0LjY0MDYyNSAtMjUuMTg3NSBDIDQ0LjcyMjY1NiAtMjUuMzIwMzEyIDQ0Ljg1OTM3NSAtMjUuNDM3NSA0NS4wNDY4NzUgLTI1LjUzMTI1IEMgNDkuNDI5Njg4IC0yOC4wNzAzMTIgNTMuNDQ1MzEyIC0zMS4xMTcxODggNTcuMDkzNzUgLTM0LjY3MTg3NSBDIDU3LjY4NzUgLTM1LjI2NTYyNSA1OC4zMTY0MDYgLTM1Ljc2OTUzMSA1OC45ODQzNzUgLTM2LjE4NzUgQyA1OS42NjAxNTYgLTM2LjYwMTU2MiA2MC40ODQzNzUgLTM2LjY3OTY4OCA2MS40NTMxMjUgLTM2LjQyMTg3NSBaIE0gMjcuMjY1NjI1IC00MC44OTA2MjUgQyAyNy43NzM0MzggLTQxLjcyMjY1NiAyNy45MjU3ODEgLTQyLjUxOTUzMSAyNy43MTg3NSAtNDMuMjgxMjUgQyAyNy41MDc4MTIgLTQ0LjAzOTA2MiAyNi45ODgyODEgLTQ0LjYwOTM3NSAyNi4xNTYyNSAtNDQuOTg0Mzc1IEMgMjQuNDQ1MzEyIC00NS44OTg0MzggMjIuNjI1IC00Ni4wMTU2MjUgMjAuNjg3NSAtNDUuMzI4MTI1IEMgMTUuOTM3NSAtNDMuODk4NDM4IDExLjk1NzAzMSAtNDEuMTc1NzgxIDguNzUgLTM3LjE1NjI1IEMgNS41MzkwNjIgLTMzLjE0NDUzMSAzLjgwMDc4MSAtMjguNzE4NzUgMy41MzEyNSAtMjMuODc1IEMgMy42MjUgLTIzLjY0NDUzMSAzLjY3MTg3NSAtMjMuNDg0Mzc1IDMuNjcxODc1IC0yMy4zOTA2MjUgQyAzLjY3MTg3NSAtMjIuOTcyNjU2IDMuNjcxODc1IC0yMi41NTQ2ODggMy42NzE4NzUgLTIyLjE0MDYyNSBDIDQuMDg1OTM4IC0xOS45Mjk2ODggNS40NTcwMzEgLTE5LjUwMzkwNiA3Ljc4MTI1IC0yMC44NTkzNzUgQyAxMC4xMTMyODEgLTIyLjIyMjY1NiAxMi43MTg3NSAtMjQuNDI1NzgxIDE1LjU5Mzc1IC0yNy40Njg3NSBDIDE4LjQ3NjU2MiAtMzAuNTA3ODEyIDIxLjA2MjUgLTMzLjQwNjI1IDIzLjM0Mzc1IC0zNi4xNTYyNSBDIDI1LjYzMjgxMiAtMzguOTA2MjUgMjYuOTQxNDA2IC00MC40ODQzNzUgMjcuMjY1NjI1IC00MC44OTA2MjUgWiBNIDI3LjI2NTYyNSAtNDAuODkwNjI1ICIvPjwvZz48L2c+PC9nPjxnIGZpbGw9IiNmZmZmZmYiIGZpbGwtb3BhY2l0eT0iMSI+PGcgdHJhbnNmb3JtPSJ0cmFuc2xhdGUoMTMwMi42NzgyMiwgODgxLjQ3NjUzNikiPjxnPjxwYXRoIGQ9Ik0gNTAuMjAzMTI1IC0zNS4yNSBDIDUxLjI4NTE1NiAtMzQuNjMyODEyIDUxLjM2NzE4OCAtMzMuMTI1IDUwLjQ1MzEyNSAtMzAuNzE4NzUgQyA0OS4xMDkzNzUgLTI4Ljk2ODc1IDQ3LjY3NTc4MSAtMjcuMzMyMDMxIDQ2LjE1NjI1IC0yNS44MTI1IEMgNDQuNjMyODEyIC0yNC4yODkwNjIgNDIuOTcyNjU2IC0yMi45Mjk2ODggNDEuMTcxODc1IC0yMS43MzQzNzUgQyA0MS4wMzUxNTYgLTIxLjczNDM3NSA0MC45Njg3NSAtMjEuNjg3NSA0MC45Njg3NSAtMjEuNTkzNzUgQyAzOS43Njk1MzEgLTIwLjc1NzgxMiAzOC41IC0yMC4wMzkwNjIgMzcuMTU2MjUgLTE5LjQzNzUgQyAyNi4xMzI4MTIgLTE1LjQ3NjU2MiAyMC41MDc4MTIgLTE3LjgxMjUgMjAuMjgxMjUgLTI2LjQzNzUgQyAxNS44MDA3ODEgLTIyLjU2MjUgMTIuODAwNzgxIC0yMC4xODc1IDExLjI4MTI1IC0xOS4zMTI1IEMgNy42MzI4MTIgLTE3LjEzMjgxMiAzLjY5MTQwNiAtMTYuMTY0MDYyIC0wLjU0Njg3NSAtMTYuNDA2MjUgQyAtMy42OTE0MDYgLTE2LjU4MjAzMSAtNS44MjgxMjUgLTE3LjUzNTE1NiAtNi45NTMxMjUgLTE5LjI2NTYyNSBDIC04LjA4NTkzOCAtMjAuOTkyMTg4IC03Ljk4NDM3NSAtMjMuMzM1OTM4IC02LjY0MDYyNSAtMjYuMjk2ODc1IEMgLTQuNjA5Mzc1IC0zMC45NTMxMjUgLTEuNzI2NTYyIC0zNS4xMDE1NjIgMiAtMzguNzUgQyA2LjM4MjgxMiAtNDIuODEyNSAxMS4yNTM5MDYgLTQ2LjA2NjQwNiAxNi42MDkzNzUgLTQ4LjUxNTYyNSBDIDE5LjQ2MDkzOCAtNDkuOTQxNDA2IDIyLjQ2MDkzOCAtNTAuNDkyMTg4IDI1LjYwOTM3NSAtNTAuMTcxODc1IEMgMjguNzQyMTg4IC00OS45ODQzNzUgMzAuNjMyODEyIC00OC4yMDcwMzEgMzEuMjgxMjUgLTQ0Ljg0Mzc1IEMgMzEuNTUwNzgxIC00My44MjAzMTIgMzEuMjk2ODc1IC00Mi45MjE4NzUgMzAuNTE1NjI1IC00Mi4xNDA2MjUgQyAyOS41MDM5MDYgLTQxLjIyMjY1NiAyOC4zMjgxMjUgLTQxLjAxNTYyNSAyNi45ODQzNzUgLTQxLjUxNTYyNSBDIDI2Ljg5MDYyNSAtNDEuNTE1NjI1IDI2Ljc1NzgxMiAtNDEuNTM1MTU2IDI2LjU5Mzc1IC00MS41NzgxMjUgQyAyNi40Mzc1IC00MS42Mjg5MDYgMjYuMzEyNSAtNDEuNzAzMTI1IDI2LjIxODc1IC00MS43OTY4NzUgQyAyNC44ODI4MTIgLTQzLjY0MDYyNSAyMy41MzUxNTYgLTQ0LjQxMDE1NiAyMi4xNzE4NzUgLTQ0LjEwOTM3NSBDIDIwLjgxNjQwNiAtNDMuODE2NDA2IDE5LjM3ODkwNiAtNDMuMjA3MDMxIDE3Ljg1OTM3NSAtNDIuMjgxMjUgQyAxMC43NTM5MDYgLTM4LjEyNSA1LjQ2ODc1IC0zMi4zMzIwMzEgMiAtMjQuOTA2MjUgQyAxLjgyMDMxMiAtMjQuNTgyMDMxIDEuNzA3MDMxIC0yNC4yMjI2NTYgMS42NTYyNSAtMjMuODI4MTI1IEMgMS42MTMyODEgLTIzLjQ0MTQwNiAxLjcyNjU2MiAtMjMuMTMyODEyIDIgLTIyLjkwNjI1IEMgMi44MzIwMzEgLTIyLjYyNSAzLjc1MzkwNiAtMjIuNjc5Njg4IDQuNzY1NjI1IC0yMy4wNzgxMjUgQyA1Ljc4NTE1NiAtMjMuNDcyNjU2IDYuODAwNzgxIC0yNC4wNTA3ODEgNy44MTI1IC0yNC44MTI1IEMgOC44MzIwMzEgLTI1LjU3MDMxMiA5LjY4NzUgLTI2LjIwMzEyNSAxMC4zNzUgLTI2LjcwMzEyNSBDIDEwLjQ2ODc1IC0yNi44NDc2NTYgMTAuNTE1NjI1IC0yNi45MjE4NzUgMTAuNTE1NjI1IC0yNi45MjE4NzUgQyAxMy44Nzg5MDYgLTI5LjczNDM3NSAxNy4xNzU3ODEgLTMyLjYxMzI4MSAyMC40MDYyNSAtMzUuNTYyNSBDIDIxLjg0Mzc1IC0zNy4wOTM3NSAyMy42MTcxODggLTM3Ljk0NTMxMiAyNS43MzQzNzUgLTM4LjEyNSBDIDI4Ljc4NTE1NiAtMzguMTI1IDMwLjA1NDY4OCAtMzYuNzY1NjI1IDI5LjU0Njg3NSAtMzQuMDQ2ODc1IEMgMjkuMjY1NjI1IC0zMy4wMjM0MzggMjguOTYwOTM4IC0zMi4wMDc4MTIgMjguNjQwNjI1IC0zMSBDIDI3LjQ0MTQwNiAtMjYuNjEzMjgxIDI3LjM5NDUzMSAtMjQuMDM5MDYyIDI4LjUgLTIzLjI4MTI1IEMgMjkuNjEzMjgxIC0yMi41MTk1MzEgMzEuMzEyNSAtMjIuNTE5NTMxIDMzLjU5Mzc1IC0yMy4yODEyNSBDIDM1Ljg3NSAtMjQuMDM5MDYyIDM4LjE1NjI1IC0yNS40OTIxODggNDAuNDM3NSAtMjcuNjQwNjI1IEMgNDIuNzI2NTYyIC0yOS43ODUxNTYgNDQuNjU2MjUgLTMxLjc0MjE4OCA0Ni4yMTg3NSAtMzMuNTE1NjI1IEMgNDcuNzg5MDYyIC0zNS4yOTY4NzUgNDkuMTE3MTg4IC0zNS44NzUgNTAuMjAzMTI1IC0zNS4yNSBaIE0gNTAuMjAzMTI1IC0zNS4yNSAiLz48L2c+PC9nPjwvZz48ZyBmaWxsPSIjZmZmZmZmIiBmaWxsLW9wYWNpdHk9IjEiPjxnIHRyYW5zZm9ybT0idHJhbnNsYXRlKDEzNjkuODQ4MDkyLCA4ODEuNDc2NTM2KSI+PGcvPjwvZz48L2c+PGcgbWFzaz0idXJsKCMxYjY4NjNkYWJiKSI+PGcgdHJhbnNmb3JtPSJtYXRyaXgoMSwgMCwgMCwgMSwgNDgyLCAzMzkpIj48ZyBjbGlwLXBhdGg9InVybCgjYmJmYzY4NDYzNikiPjxnIGZpbGw9IiNmNGUzY2IiIGZpbGwtb3BhY2l0eT0iMSI+PGcgdHJhbnNmb3JtPSJ0cmFuc2xhdGUoMS4yNjQyMzgsIDYxOC4zMzU4MTYpIj48Zz48cGF0aCBkPSJNIDE2LjgxMjUgMCBMIDE2LjgxMjUgLTYgTCA0MC4yNSAtMTMuMjE4NzUgQyA1NS40NTcwMzEgLTE4LjQxNDA2MiA2My4wNjI1IC0yOC42MjUgNjMuMDYyNSAtNDMuODQzNzUgTCA2My4wNjI1IC0zMzQuNTYyNSBMIDE0LjQyMTg3NSAtMzI3Ljk1MzEyNSBMIDE0LjQyMTg3NSAtMzM1Ljc2NTYyNSBDIDM4LjA0Njg3NSAtMzQwLjU2NjQwNiA2MC43Njk1MzEgLTM0Ny4zNzUgODIuNTkzNzUgLTM1Ni4xODc1IEMgMTA0LjQxNDA2MiAtMzY1IDEyNC45Mzc1IC0zNzUuMjEwOTM4IDE0NC4xNTYyNSAtMzg2LjgyODEyNSBMIDE1MS45Njg3NSAtMzgxLjQyMTg3NSBMIDE0OS41NjI1IC0yOTUuNTE1NjI1IEwgMTQ5LjU2MjUgLTQzLjg0Mzc1IEMgMTQ5LjU2MjUgLTI4LjIyNjU2MiAxNTcuMTcxODc1IC0xOC4yMTg3NSAxNzIuMzkwNjI1IC0xMy44MTI1IEwgMTk3LjAxNTYyNSAtNiBMIDE5Ny4wMTU2MjUgMCBaIE0gMTYuODEyNSAwICIvPjwvZz48L2c+PC9nPjxnIGZpbGw9IiNmNGUzY2IiIGZpbGwtb3BhY2l0eT0iMSI+PGcgdHJhbnNmb3JtPSJ0cmFuc2xhdGUoMjExLjQ5MzgzNCwgNjE4LjMzNTgxNikiPjxnPjxwYXRoIGQ9Ik0gMTcyLjM5MDYyNSAwIEwgMTcyLjM5MDYyNSAtOTcuMzEyNSBMIDE0LjQyMTg3NSAtOTcuMzEyNSBMIDE0LjQyMTg3NSAtMTMxLjU0Njg3NSBMIDE5MC40MDYyNSAtMzg1LjYyNSBMIDI0OS4yNjU2MjUgLTM4NS42MjUgTCAyNDkuMjY1NjI1IC0xNDEuNzUgTCAzMDYuMzI4MTI1IC0xNDEuNzUgTCAzMDYuMzI4MTI1IC05Ny4zMTI1IEwgMjQ5LjI2NTYyNSAtOTcuMzEyNSBMIDI0OS4yNjU2MjUgMCBaIE0gNDAuODQzNzUgLTE0MS43NSBMIDE3Mi4zOTA2MjUgLTE0MS43NSBMIDE3Mi4zOTA2MjUgLTMzMC45Njg3NSBaIE0gNDAuODQzNzUgLTE0MS43NSAiLz48L2c+PC9nPjwvZz48L2c+PC9nPjwvZz48ZyBmaWxsPSIjZmZmZmZmIiBmaWxsLW9wYWNpdHk9IjEiPjxnIHRyYW5zZm9ybT0idHJhbnNsYXRlKDMwNS4zNDM3NTgsIDEyMjMuMDYxMzMxKSI+PGc+PHBhdGggZD0iTSAzNC4zOTA2MjUgMCBMIDI4LjI2NTYyNSAwIEwgMjIuNzM0Mzc1IC0yMi40MDYyNSBMIDIxLjY4NzUgLTI3LjM1OTM3NSBDIDIxLjUwNzgxMiAtMjYuNDg0Mzc1IDIxLjIzNDM3NSAtMjUuMjE4NzUgMjAuODU5Mzc1IC0yMy41NjI1IEMgMjAuNDg0Mzc1IC0yMS45MTQwNjIgMTguNDkyMTg4IC0xNC4wNjI1IDE0Ljg5MDYyNSAwIEwgOC43OTY4NzUgMCBMIC0wLjA5Mzc1IC0zMS43MDMxMjUgTCA1LjEyNSAtMzEuNzAzMTI1IEwgMTAuNDg0Mzc1IC0xMC4xNzE4NzUgQyAxMC42MTcxODggLTkuNzAzMTI1IDExLjAzOTA2MiAtNy43NjU2MjUgMTEuNzUgLTQuMzU5Mzc1IEwgMTIuMjUgLTYuNTMxMjUgTCAxOC44NzUgLTMxLjcwMzEyNSBMIDI0LjUxNTYyNSAtMzEuNzAzMTI1IEwgMzAuMDYyNSAtOS45Mzc1IEwgMzEuNDA2MjUgLTQuMzU5Mzc1IEwgMzIuMzEyNSAtOC40Mzc1IEwgMzguMzI4MTI1IC0zMS43MDMxMjUgTCA0My40ODQzNzUgLTMxLjcwMzEyNSBaIE0gMzQuMzkwNjI1IDAgIi8+PC9nPjwvZz48L2c+PGcgZmlsbD0iI2ZmZmZmZiIgZmlsbC1vcGFjaXR5PSIxIj48ZyB0cmFuc2Zvcm09InRyYW5zbGF0ZSgzNTcuNjczODMxLCAxMjIzLjA2MTMzMSkiPjxnPjxwYXRoIGQ9Ik0gMzQuMzkwNjI1IDAgTCAyOC4yNjU2MjUgMCBMIDIyLjczNDM3NSAtMjIuNDA2MjUgTCAyMS42ODc1IC0yNy4zNTkzNzUgQyAyMS41MDc4MTIgLTI2LjQ4NDM3NSAyMS4yMzQzNzUgLTI1LjIxODc1IDIwLjg1OTM3NSAtMjMuNTYyNSBDIDIwLjQ4NDM3NSAtMjEuOTE0MDYyIDE4LjQ5MjE4OCAtMTQuMDYyNSAxNC44OTA2MjUgMCBMIDguNzk2ODc1IDAgTCAtMC4wOTM3NSAtMzEuNzAzMTI1IEwgNS4xMjUgLTMxLjcwMzEyNSBMIDEwLjQ4NDM3NSAtMTAuMTcxODc1IEMgMTAuNjE3MTg4IC05LjcwMzEyNSAxMS4wMzkwNjIgLTcuNzY1NjI1IDExLjc1IC00LjM1OTM3NSBMIDEyLjI1IC02LjUzMTI1IEwgMTguODc1IC0zMS43MDMxMjUgTCAyNC41MTU2MjUgLTMxLjcwMzEyNSBMIDMwLjA2MjUgLTkuOTM3NSBMIDMxLjQwNjI1IC00LjM1OTM3NSBMIDMyLjMxMjUgLTguNDM3NSBMIDM4LjMyODEyNSAtMzEuNzAzMTI1IEwgNDMuNDg0Mzc1IC0zMS43MDMxMjUgWiBNIDM0LjM5MDYyNSAwICIvPjwvZz48L2c+PC9nPjxnIGZpbGw9IiNmZmZmZmYiIGZpbGwtb3BhY2l0eT0iMSI+PGcgdHJhbnNmb3JtPSJ0cmFuc2xhdGUoNDEwLjAwMzkwMywgMTIyMy4wNjEzMzEpIj48Zz48cGF0aCBkPSJNIDM0LjM5MDYyNSAwIEwgMjguMjY1NjI1IDAgTCAyMi43MzQzNzUgLTIyLjQwNjI1IEwgMjEuNjg3NSAtMjcuMzU5Mzc1IEMgMjEuNTA3ODEyIC0yNi40ODQzNzUgMjEuMjM0Mzc1IC0yNS4yMTg3NSAyMC44NTkzNzUgLTIzLjU2MjUgQyAyMC40ODQzNzUgLTIxLjkxNDA2MiAxOC40OTIxODggLTE0LjA2MjUgMTQuODkwNjI1IDAgTCA4Ljc5Njg3NSAwIEwgLTAuMDkzNzUgLTMxLjcwMzEyNSBMIDUuMTI1IC0zMS43MDMxMjUgTCAxMC40ODQzNzUgLTEwLjE3MTg3NSBDIDEwLjYxNzE4OCAtOS43MDMxMjUgMTEuMDM5MDYyIC03Ljc2NTYyNSAxMS43NSAtNC4zNTkzNzUgTCAxMi4yNSAtNi41MzEyNSBMIDE4Ljg3NSAtMzEuNzAzMTI1IEwgMjQuNTE1NjI1IC0zMS43MDMxMjUgTCAzMC4wNjI1IC05LjkzNzUgTCAzMS40MDYyNSAtNC4zNTkzNzUgTCAzMi4zMTI1IC04LjQzNzUgTCAzOC4zMjgxMjUgLTMxLjcwMzEyNSBMIDQzLjQ4NDM3NSAtMzEuNzAzMTI1IFogTSAzNC4zOTA2MjUgMCAiLz48L2c+PC9nPjwvZz48ZyBmaWxsPSIjZmZmZmZmIiBmaWxsLW9wYWNpdHk9IjEiPjxnIHRyYW5zZm9ybT0idHJhbnNsYXRlKDQ2Mi4zMzM5NzYsIDEyMjMuMDYxMzMxKSI+PGc+PHBhdGggZD0iTSA1LjQ4NDM3NSAwIEwgNS40ODQzNzUgLTYuNDIxODc1IEwgMTEuMTg3NSAtNi40MjE4NzUgTCAxMS4xODc1IDAgWiBNIDUuNDg0Mzc1IDAgIi8+PC9nPjwvZz48L2c+PGcgZmlsbD0iI2ZmZmZmZiIgZmlsbC1vcGFjaXR5PSIxIj48ZyB0cmFuc2Zvcm09InRyYW5zbGF0ZSg0ODguMDAzODk1LCAxMjIzLjA2MTMzMSkiPjxnPjxwYXRoIGQ9Ik0gOC4wNjI1IC0xNiBDIDguMDYyNSAtMTEuNzgxMjUgOC43MjI2NTYgLTguNjU2MjUgMTAuMDQ2ODc1IC02LjYyNSBDIDExLjM3ODkwNiAtNC41OTM3NSAxMy4zODI4MTIgLTMuNTc4MTI1IDE2LjA2MjUgLTMuNTc4MTI1IEMgMTcuOTM3NSAtMy41NzgxMjUgMTkuNSAtNC4wODIwMzEgMjAuNzUgLTUuMDkzNzUgQyAyMi4wMDc4MTIgLTYuMTEzMjgxIDIyLjc4OTA2MiAtNy42NzU3ODEgMjMuMDkzNzUgLTkuNzgxMjUgTCAyOC40MjE4NzUgLTkuNDM3NSBDIDI4LjAwMzkwNiAtNi4zODI4MTIgMjYuNzAzMTI1IC0zLjk0NTMxMiAyNC41MTU2MjUgLTIuMTI1IEMgMjIuMzI4MTI1IC0wLjMxMjUgMTkuNTU0Njg4IDAuNTkzNzUgMTYuMjAzMTI1IDAuNTkzNzUgQyAxMS43NjU2MjUgMC41OTM3NSA4LjM3ODkwNiAtMC44MDQ2ODggNi4wNDY4NzUgLTMuNjA5Mzc1IEMgMy43MTA5MzggLTYuNDIxODc1IDIuNTQ2ODc1IC0xMC41MDc4MTIgMi41NDY4NzUgLTE1Ljg3NSBDIDIuNTQ2ODc1IC0yMS4yMDcwMzEgMy43MTg3NSAtMjUuMjczNDM4IDYuMDYyNSAtMjguMDc4MTI1IEMgOC40MDYyNSAtMzAuODc4OTA2IDExLjc2NTYyNSAtMzIuMjgxMjUgMTYuMTQwNjI1IC0zMi4yODEyNSBDIDE5LjM3ODkwNiAtMzIuMjgxMjUgMjIuMDY2NDA2IC0zMS40NDE0MDYgMjQuMjAzMTI1IC0yOS43NjU2MjUgQyAyNi4zNDc2NTYgLTI4LjA4NTkzOCAyNy42OTUzMTIgLTI1Ljc3MzQzOCAyOC4yNSAtMjIuODI4MTI1IEwgMjIuODI4MTI1IC0yMi40MDYyNSBDIDIyLjU0Njg3NSAtMjQuMTY0MDYyIDIxLjg0NzY1NiAtMjUuNTYyNSAyMC43MzQzNzUgLTI2LjU5Mzc1IEMgMTkuNjI4OTA2IC0yNy42MzI4MTIgMTguMDUwNzgxIC0yOC4xNTYyNSAxNiAtMjguMTU2MjUgQyAxMy4yMDcwMzEgLTI4LjE1NjI1IDExLjE4NzUgLTI3LjIyNjU2MiA5LjkzNzUgLTI1LjM3NSBDIDguNjg3NSAtMjMuNTE5NTMxIDguMDYyNSAtMjAuMzk0NTMxIDguMDYyNSAtMTYgWiBNIDguMDYyNSAtMTYgIi8+PC9nPjwvZz48L2c+PGcgZmlsbD0iI2ZmZmZmZiIgZmlsbC1vcGFjaXR5PSIxIj48ZyB0cmFuc2Zvcm09InRyYW5zbGF0ZSg1MjcuMDAzODkyLCAxMjIzLjA2MTMzMSkiPjxnPjxwYXRoIGQ9Ik0gMTIuMTI1IDAuNTkzNzUgQyA4Ljk0NTMxMiAwLjU5Mzc1IDYuNTU0Njg4IC0wLjI0MjE4OCA0Ljk1MzEyNSAtMS45MjE4NzUgQyAzLjM0NzY1NiAtMy42MDkzNzUgMi41NDY4NzUgLTUuOTE0MDYyIDIuNTQ2ODc1IC04Ljg0Mzc1IEMgMi41NDY4NzUgLTEyLjEyNSAzLjYyNSAtMTQuNjQ0NTMxIDUuNzgxMjUgLTE2LjQwNjI1IEMgNy45NDUzMTIgLTE4LjE2NDA2MiAxMS40Mjk2ODggLTE5LjEwMTU2MiAxNi4yMzQzNzUgLTE5LjIxODc1IEwgMjMuMzQzNzUgLTE5LjM0Mzc1IEwgMjMuMzQzNzUgLTIxLjA2MjUgQyAyMy4zNDM3NSAtMjMuNjQ0NTMxIDIyLjc5Njg3NSAtMjUuNDg4MjgxIDIxLjcwMzEyNSAtMjYuNTkzNzUgQyAyMC42MDkzNzUgLTI3LjcwNzAzMSAxOC44OTA2MjUgLTI4LjI2NTYyNSAxNi41NDY4NzUgLTI4LjI2NTYyNSBDIDE0LjE5MTQwNiAtMjguMjY1NjI1IDEyLjQ3MjY1NiAtMjcuODYzMjgxIDExLjM5MDYyNSAtMjcuMDYyNSBDIDEwLjMxNjQwNiAtMjYuMjY5NTMxIDkuNjc1NzgxIC0yNC45OTIxODggOS40Njg3NSAtMjMuMjM0Mzc1IEwgMy45NTMxMjUgLTIzLjczNDM3NSBDIDQuODQ3NjU2IC0yOS40Mjk2ODggOS4wODU5MzggLTMyLjI4MTI1IDE2LjY3MTg3NSAtMzIuMjgxMjUgQyAyMC42NDg0MzggLTMyLjI4MTI1IDIzLjY0NDUzMSAtMzEuMzY3MTg4IDI1LjY1NjI1IC0yOS41NDY4NzUgQyAyNy42NzU3ODEgLTI3LjcyMjY1NiAyOC42ODc1IC0yNS4wODIwMzEgMjguNjg3NSAtMjEuNjI1IEwgMjguNjg3NSAtNy45Njg3NSBDIDI4LjY4NzUgLTYuNDA2MjUgMjguODkwNjI1IC01LjIyNjU2MiAyOS4yOTY4NzUgLTQuNDM3NSBDIDI5LjcwMzEyNSAtMy42NDQ1MzEgMzAuNDg0Mzc1IC0zLjI1IDMxLjY0MDYyNSAtMy4yNSBDIDMyLjE0ODQzOCAtMy4yNSAzMi43MjY1NjIgLTMuMzE2NDA2IDMzLjM3NSAtMy40NTMxMjUgTCAzMy4zNzUgLTAuMTcxODc1IEMgMzIuMDM5MDYyIDAuMTQwNjI1IDMwLjY3OTY4OCAwLjI5Njg3NSAyOS4yOTY4NzUgMC4yOTY4NzUgQyAyNy4zNDc2NTYgMC4yOTY4NzUgMjUuOTI1NzgxIC0wLjIxMDkzOCAyNS4wMzEyNSAtMS4yMzQzNzUgQyAyNC4xNDQ1MzEgLTIuMjY1NjI1IDIzLjY0NDUzMSAtMy44NzUgMjMuNTMxMjUgLTYuMDYyNSBMIDIzLjM0Mzc1IC02LjA2MjUgQyAyMiAtMy42NDQ1MzEgMjAuNDI5Njg4IC0xLjkyOTY4OCAxOC42NDA2MjUgLTAuOTIxODc1IEMgMTYuODU5Mzc1IDAuMDg1OTM3NSAxNC42ODc1IDAuNTkzNzUgMTIuMTI1IDAuNTkzNzUgWiBNIDEzLjMyODEyNSAtMy4zNzUgQyAxNS4yNjU2MjUgLTMuMzc1IDE2Ljk4NDM3NSAtMy44MTI1IDE4LjQ4NDM3NSAtNC42ODc1IEMgMTkuOTkyMTg4IC01LjU2MjUgMjEuMTc5Njg4IC02Ljc2NTYyNSAyMi4wNDY4NzUgLTguMjk2ODc1IEMgMjIuOTEwMTU2IC05LjgzNTkzOCAyMy4zNDM3NSAtMTEuNDE0MDYyIDIzLjM0Mzc1IC0xMy4wMzEyNSBMIDIzLjM0Mzc1IC0xNS42NDA2MjUgTCAxNy41NzgxMjUgLTE1LjUzMTI1IEMgMTUuMDk3NjU2IC0xNS40ODgyODEgMTMuMjE4NzUgLTE1LjIzNDM3NSAxMS45Mzc1IC0xNC43NjU2MjUgQyAxMC42NTYyNSAtMTQuMjk2ODc1IDkuNjcxODc1IC0xMy41NzAzMTIgOC45ODQzNzUgLTEyLjU5Mzc1IEMgOC4zMDQ2ODggLTExLjYyNSA3Ljk2ODc1IC0xMC4zNDc2NTYgNy45Njg3NSAtOC43NjU2MjUgQyA3Ljk2ODc1IC03LjA0Njg3NSA4LjQyOTY4OCAtNS43MTg3NSA5LjM1OTM3NSAtNC43ODEyNSBDIDEwLjI4NTE1NiAtMy44NDM3NSAxMS42MDkzNzUgLTMuMzc1IDEzLjMyODEyNSAtMy4zNzUgWiBNIDEzLjMyODEyNSAtMy4zNzUgIi8+PC9nPjwvZz48L2c+PGcgZmlsbD0iI2ZmZmZmZiIgZmlsbC1vcGFjaXR5PSIxIj48ZyB0cmFuc2Zvcm09InRyYW5zbGF0ZSg1NjkuMzczMDI5LCAxMjIzLjA2MTMzMSkiPjxnPjxwYXRoIGQ9Ik0gMjcuODI4MTI1IC04Ljc2NTYyNSBDIDI3LjgyODEyNSAtNS43NzM0MzggMjYuNjk1MzEyIC0zLjQ2ODc1IDI0LjQzNzUgLTEuODQzNzUgQyAyMi4xODc1IC0wLjIxODc1IDE5LjAzMTI1IDAuNTkzNzUgMTQuOTY4NzUgMC41OTM3NSBDIDExLjAxOTUzMSAwLjU5Mzc1IDcuOTc2NTYyIC0wLjA1NDY4NzUgNS44NDM3NSAtMS4zNTkzNzUgQyAzLjcwNzAzMSAtMi42NjAxNTYgMi4zMTY0MDYgLTQuNjg3NSAxLjY3MTg3NSAtNy40Mzc1IEwgNi4zMjgxMjUgLTguMzQzNzUgQyA2Ljc3MzQzOCAtNi42NDQ1MzEgNy43MDMxMjUgLTUuMzk4NDM4IDkuMTA5Mzc1IC00LjYwOTM3NSBDIDEwLjUxNTYyNSAtMy44MTY0MDYgMTIuNDY4NzUgLTMuNDIxODc1IDE0Ljk2ODc1IC0zLjQyMTg3NSBDIDE3LjY0NDUzMSAtMy40MjE4NzUgMTkuNjAxNTYyIC0zLjgzMjAzMSAyMC44NDM3NSAtNC42NTYyNSBDIDIyLjA4MjAzMSAtNS40NzY1NjIgMjIuNzAzMTI1IC02LjcwNzAzMSAyMi43MDMxMjUgLTguMzQzNzUgQyAyMi43MDMxMjUgLTkuNTkzNzUgMjIuMjY5NTMxIC0xMC42MDkzNzUgMjEuNDA2MjUgLTExLjM5MDYyNSBDIDIwLjU1MDc4MSAtMTIuMTcxODc1IDE5LjE2NDA2MiAtMTIuODE2NDA2IDE3LjI1IC0xMy4zMjgxMjUgTCAxMy40ODQzNzUgLTE0LjMyODEyNSBDIDEwLjQ1MzEyNSAtMTUuMTA5Mzc1IDguMjk2ODc1IC0xNS44NzUgNy4wMTU2MjUgLTE2LjYyNSBDIDUuNzM0Mzc1IC0xNy4zNzUgNC43MzQzNzUgLTE4LjI4NTE1NiA0LjAxNTYyNSAtMTkuMzU5Mzc1IEMgMy4yOTY4NzUgLTIwLjQ0MTQwNiAyLjkzNzUgLTIxLjc2NTYyNSAyLjkzNzUgLTIzLjMyODEyNSBDIDIuOTM3NSAtMjYuMjEwOTM4IDMuOTYwOTM4IC0yOC40MTAxNTYgNi4wMTU2MjUgLTI5LjkyMTg3NSBDIDguMDc4MTI1IC0zMS40NDE0MDYgMTEuMDgyMDMxIC0zMi4yMDMxMjUgMTUuMDMxMjUgLTMyLjIwMzEyNSBDIDE4LjUzMTI1IC0zMi4yMDMxMjUgMjEuMzA0Njg4IC0zMS41ODIwMzEgMjMuMzU5Mzc1IC0zMC4zNDM3NSBDIDI1LjQyMTg3NSAtMjkuMTEzMjgxIDI2LjcyNjU2MiAtMjcuMTQ0NTMxIDI3LjI4MTI1IC0yNC40Mzc1IEwgMjIuNTMxMjUgLTIzLjg0Mzc1IEMgMjIuMjM4MjgxIC0yNS4yNSAyMS40NTMxMjUgLTI2LjMyODEyNSAyMC4xNzE4NzUgLTI3LjA3ODEyNSBDIDE4Ljg5MDYyNSAtMjcuODM1OTM4IDE3LjE3NTc4MSAtMjguMjE4NzUgMTUuMDMxMjUgLTI4LjIxODc1IEMgMTIuNjQ0NTMxIC0yOC4yMTg3NSAxMC44ODI4MTIgLTI3Ljg1MTU2MiA5Ljc1IC0yNy4xMjUgQyA4LjYyNSAtMjYuNDA2MjUgOC4wNjI1IC0yNS4zMTI1IDguMDYyNSAtMjMuODQzNzUgQyA4LjA2MjUgLTIyLjk0NTMxMiA4LjI5Njg3NSAtMjIuMjA3MDMxIDguNzY1NjI1IC0yMS42MjUgQyA5LjIzNDM3NSAtMjEuMDM5MDYyIDkuOTI1NzgxIC0yMC41MzkwNjIgMTAuODQzNzUgLTIwLjEyNSBDIDExLjc1NzgxMiAtMTkuNzE4NzUgMTMuNjkxNDA2IC0xOS4xNDg0MzggMTYuNjQwNjI1IC0xOC40MjE4NzUgQyAxOS40Mjk2ODggLTE3LjcyMjY1NiAyMS40NDE0MDYgLTE3LjA3ODEyNSAyMi42NzE4NzUgLTE2LjQ4NDM3NSBDIDIzLjg5ODQzOCAtMTUuODkwNjI1IDI0Ljg2NzE4OCAtMTUuMjI2NTYyIDI1LjU3ODEyNSAtMTQuNSBDIDI2LjI5Njg3NSAtMTMuNzgxMjUgMjYuODQ3NjU2IC0xMi45NDUzMTIgMjcuMjM0Mzc1IC0xMiBDIDI3LjYyODkwNiAtMTEuMDUwNzgxIDI3LjgyODEyNSAtOS45NzI2NTYgMjcuODI4MTI1IC04Ljc2NTYyNSBaIE0gMjcuODI4MTI1IC04Ljc2NTYyNSAiLz48L2c+PC9nPjwvZz48ZyBmaWxsPSIjZmZmZmZmIiBmaWxsLW9wYWNpdHk9IjEiPjxnIHRyYW5zZm9ybT0idHJhbnNsYXRlKDYwOC4zNzMwMjYsIDEyMjMuMDYxMzMxKSI+PGc+PHBhdGggZD0iTSAxMi4xMjUgMC41OTM3NSBDIDguOTQ1MzEyIDAuNTkzNzUgNi41NTQ2ODggLTAuMjQyMTg4IDQuOTUzMTI1IC0xLjkyMTg3NSBDIDMuMzQ3NjU2IC0zLjYwOTM3NSAyLjU0Njg3NSAtNS45MTQwNjIgMi41NDY4NzUgLTguODQzNzUgQyAyLjU0Njg3NSAtMTIuMTI1IDMuNjI1IC0xNC42NDQ1MzEgNS43ODEyNSAtMTYuNDA2MjUgQyA3Ljk0NTMxMiAtMTguMTY0MDYyIDExLjQyOTY4OCAtMTkuMTAxNTYyIDE2LjIzNDM3NSAtMTkuMjE4NzUgTCAyMy4zNDM3NSAtMTkuMzQzNzUgTCAyMy4zNDM3NSAtMjEuMDYyNSBDIDIzLjM0Mzc1IC0yMy42NDQ1MzEgMjIuNzk2ODc1IC0yNS40ODgyODEgMjEuNzAzMTI1IC0yNi41OTM3NSBDIDIwLjYwOTM3NSAtMjcuNzA3MDMxIDE4Ljg5MDYyNSAtMjguMjY1NjI1IDE2LjU0Njg3NSAtMjguMjY1NjI1IEMgMTQuMTkxNDA2IC0yOC4yNjU2MjUgMTIuNDcyNjU2IC0yNy44NjMyODEgMTEuMzkwNjI1IC0yNy4wNjI1IEMgMTAuMzE2NDA2IC0yNi4yNjk1MzEgOS42NzU3ODEgLTI0Ljk5MjE4OCA5LjQ2ODc1IC0yMy4yMzQzNzUgTCAzLjk1MzEyNSAtMjMuNzM0Mzc1IEMgNC44NDc2NTYgLTI5LjQyOTY4OCA5LjA4NTkzOCAtMzIuMjgxMjUgMTYuNjcxODc1IC0zMi4yODEyNSBDIDIwLjY0ODQzOCAtMzIuMjgxMjUgMjMuNjQ0NTMxIC0zMS4zNjcxODggMjUuNjU2MjUgLTI5LjU0Njg3NSBDIDI3LjY3NTc4MSAtMjcuNzIyNjU2IDI4LjY4NzUgLTI1LjA4MjAzMSAyOC42ODc1IC0yMS42MjUgTCAyOC42ODc1IC03Ljk2ODc1IEMgMjguNjg3NSAtNi40MDYyNSAyOC44OTA2MjUgLTUuMjI2NTYyIDI5LjI5Njg3NSAtNC40Mzc1IEMgMjkuNzAzMTI1IC0zLjY0NDUzMSAzMC40ODQzNzUgLTMuMjUgMzEuNjQwNjI1IC0zLjI1IEMgMzIuMTQ4NDM4IC0zLjI1IDMyLjcyNjU2MiAtMy4zMTY0MDYgMzMuMzc1IC0zLjQ1MzEyNSBMIDMzLjM3NSAtMC4xNzE4NzUgQyAzMi4wMzkwNjIgMC4xNDA2MjUgMzAuNjc5Njg4IDAuMjk2ODc1IDI5LjI5Njg3NSAwLjI5Njg3NSBDIDI3LjM0NzY1NiAwLjI5Njg3NSAyNS45MjU3ODEgLTAuMjEwOTM4IDI1LjAzMTI1IC0xLjIzNDM3NSBDIDI0LjE0NDUzMSAtMi4yNjU2MjUgMjMuNjQ0NTMxIC0zLjg3NSAyMy41MzEyNSAtNi4wNjI1IEwgMjMuMzQzNzUgLTYuMDYyNSBDIDIyIC0zLjY0NDUzMSAyMC40Mjk2ODggLTEuOTI5Njg4IDE4LjY0MDYyNSAtMC45MjE4NzUgQyAxNi44NTkzNzUgMC4wODU5Mzc1IDE0LjY4NzUgMC41OTM3NSAxMi4xMjUgMC41OTM3NSBaIE0gMTMuMzI4MTI1IC0zLjM3NSBDIDE1LjI2NTYyNSAtMy4zNzUgMTYuOTg0Mzc1IC0zLjgxMjUgMTguNDg0Mzc1IC00LjY4NzUgQyAxOS45OTIxODggLTUuNTYyNSAyMS4xNzk2ODggLTYuNzY1NjI1IDIyLjA0Njg3NSAtOC4yOTY4NzUgQyAyMi45MTAxNTYgLTkuODM1OTM4IDIzLjM0Mzc1IC0xMS40MTQwNjIgMjMuMzQzNzUgLTEzLjAzMTI1IEwgMjMuMzQzNzUgLTE1LjY0MDYyNSBMIDE3LjU3ODEyNSAtMTUuNTMxMjUgQyAxNS4wOTc2NTYgLTE1LjQ4ODI4MSAxMy4yMTg3NSAtMTUuMjM0Mzc1IDExLjkzNzUgLTE0Ljc2NTYyNSBDIDEwLjY1NjI1IC0xNC4yOTY4NzUgOS42NzE4NzUgLTEzLjU3MDMxMiA4Ljk4NDM3NSAtMTIuNTkzNzUgQyA4LjMwNDY4OCAtMTEuNjI1IDcuOTY4NzUgLTEwLjM0NzY1NiA3Ljk2ODc1IC04Ljc2NTYyNSBDIDcuOTY4NzUgLTcuMDQ2ODc1IDguNDI5Njg4IC01LjcxODc1IDkuMzU5Mzc1IC00Ljc4MTI1IEMgMTAuMjg1MTU2IC0zLjg0Mzc1IDExLjYwOTM3NSAtMy4zNzUgMTMuMzI4MTI1IC0zLjM3NSBaIE0gMTMuMzI4MTI1IC0zLjM3NSAiLz48L2c+PC9nPjwvZz48ZyBmaWxsPSIjZmZmZmZmIiBmaWxsLW9wYWNpdHk9IjEiPjxnIHRyYW5zZm9ybT0idHJhbnNsYXRlKDY1MC43NDIxNjMsIDEyMjMuMDYxMzMxKSI+PGc+PHBhdGggZD0iTSAzMC44NDM3NSAtMTYgQyAzMC44NDM3NSAtNC45Mzc1IDI2Ljk1NzAzMSAwLjU5Mzc1IDE5LjE4NzUgMC41OTM3NSBDIDE0LjMwMDc4MSAwLjU5Mzc1IDExLjAxOTUzMSAtMS4yNDIxODggOS4zNDM3NSAtNC45MjE4NzUgTCA5LjIwMzEyNSAtNC45MjE4NzUgQyA5LjI3MzQzOCAtNC43NjU2MjUgOS4zMTI1IC0zLjEwMTU2MiA5LjMxMjUgMC4wNjI1IEwgOS4zMTI1IDEyLjQ1MzEyNSBMIDQuMDQ2ODc1IDEyLjQ1MzEyNSBMIDQuMDQ2ODc1IC0yNS4yMTg3NSBDIDQuMDQ2ODc1IC0yOC40ODgyODEgMy45ODgyODEgLTMwLjY0ODQzOCAzLjg3NSAtMzEuNzAzMTI1IEwgOC45Njg3NSAtMzEuNzAzMTI1IEMgOC45ODgyODEgLTMxLjYxNzE4OCA5LjAxNTYyNSAtMzEuMzM1OTM4IDkuMDQ2ODc1IC0zMC44NTkzNzUgQyA5LjA4NTkzOCAtMzAuMzc4OTA2IDkuMTMyODEyIC0yOS42NDA2MjUgOS4xODc1IC0yOC42NDA2MjUgQyA5LjIzODI4MSAtMjcuNjQ4NDM4IDkuMjY1NjI1IC0yNi45NzI2NTYgOS4yNjU2MjUgLTI2LjYwOTM3NSBMIDkuMzc1IC0yNi42MDkzNzUgQyAxMC4zMTI1IC0yOC41NTQ2ODggMTEuNTUwNzgxIC0yOS45ODQzNzUgMTMuMDkzNzUgLTMwLjg5MDYyNSBDIDE0LjYzMjgxMiAtMzEuNzk2ODc1IDE2LjY2NDA2MiAtMzIuMjUgMTkuMTg3NSAtMzIuMjUgQyAyMy4wOTM3NSAtMzIuMjUgMjYuMDA3ODEyIC0zMC45NDE0MDYgMjcuOTM3NSAtMjguMzI4MTI1IEMgMjkuODc1IC0yNS43MTA5MzggMzAuODQzNzUgLTIxLjYwMTU2MiAzMC44NDM3NSAtMTYgWiBNIDI1LjMxMjUgLTE1Ljg3NSBDIDI1LjMxMjUgLTIwLjI4OTA2MiAyNC43MTA5MzggLTIzLjQ0NTMxMiAyMy41MTU2MjUgLTI1LjM0Mzc1IEMgMjIuMzI4MTI1IC0yNy4yMzgyODEgMjAuNDM3NSAtMjguMTg3NSAxNy44NDM3NSAtMjguMTg3NSBDIDE1Ljc1IC0yOC4xODc1IDE0LjEwOTM3NSAtMjcuNzQyMTg4IDEyLjkyMTg3NSAtMjYuODU5Mzc1IEMgMTEuNzQyMTg4IC0yNS45ODQzNzUgMTAuODQ3NjU2IC0yNC42MTMyODEgMTAuMjM0Mzc1IC0yMi43NSBDIDkuNjE3MTg4IC0yMC44ODI4MTIgOS4zMTI1IC0xOC40NTcwMzEgOS4zMTI1IC0xNS40Njg3NSBDIDkuMzEyNSAtMTEuMzEyNSA5Ljk3MjY1NiAtOC4yNDIxODggMTEuMjk2ODc1IC02LjI2NTYyNSBDIDEyLjYyODkwNiAtNC4yOTY4NzUgMTQuNzg5MDYyIC0zLjMxMjUgMTcuNzgxMjUgLTMuMzEyNSBDIDIwLjM5NDUzMSAtMy4zMTI1IDIyLjMwMDc4MSAtNC4yNjk1MzEgMjMuNSAtNi4xODc1IEMgMjQuNzA3MDMxIC04LjExMzI4MSAyNS4zMTI1IC0xMS4zNDM3NSAyNS4zMTI1IC0xNS44NzUgWiBNIDI1LjMxMjUgLTE1Ljg3NSAiLz48L2c+PC9nPjwvZz48ZyBmaWxsPSIjZmZmZmZmIiBmaWxsLW9wYWNpdHk9IjEiPjxnIHRyYW5zZm9ybT0idHJhbnNsYXRlKDY5My4xMTEzLCAxMjIzLjA2MTMzMSkiPjxnPjxwYXRoIGQ9Ik0gOS4yMDMxMjUgLTMxLjcwMzEyNSBMIDkuMjAzMTI1IC0xMS42MDkzNzUgQyA5LjIwMzEyNSAtOS41MTU2MjUgOS40MDYyNSAtNy44OTA2MjUgOS44MTI1IC02LjczNDM3NSBDIDEwLjIyNjU2MiAtNS41ODU5MzggMTAuODgyODEyIC00Ljc1NzgxMiAxMS43ODEyNSAtNC4yNSBDIDEyLjY3NTc4MSAtMy43MzgyODEgMTMuOTkyMTg4IC0zLjQ4NDM3NSAxNS43MzQzNzUgLTMuNDg0Mzc1IEMgMTguMjczNDM4IC0zLjQ4NDM3NSAyMC4yNzM0MzggLTQuMzUxNTYyIDIxLjczNDM3NSAtNi4wOTM3NSBDIDIzLjIwMzEyNSAtNy44MzIwMzEgMjMuOTM3NSAtMTAuMjQyMTg4IDIzLjkzNzUgLTEzLjMyODEyNSBMIDIzLjkzNzUgLTMxLjcwMzEyNSBMIDI5LjIwMzEyNSAtMzEuNzAzMTI1IEwgMjkuMjAzMTI1IC02Ljc2NTYyNSBDIDI5LjIwMzEyNSAtMy4wNzgxMjUgMjkuMjY1NjI1IC0wLjgyMDMxMiAyOS4zOTA2MjUgMCBMIDI0LjQwNjI1IDAgQyAyNC4zODI4MTIgLTAuMDkzNzUgMjQuMzYzMjgxIC0wLjM1MTU2MiAyNC4zNDM3NSAtMC43ODEyNSBDIDI0LjMyMDMxMiAtMS4yMTg3NSAyNC4yOTY4NzUgLTEuNzEwOTM4IDI0LjI2NTYyNSAtMi4yNjU2MjUgQyAyNC4yNDIxODggLTIuODI4MTI1IDI0LjIxMDkzOCAtMy44Nzg5MDYgMjQuMTcxODc1IC01LjQyMTg3NSBMIDI0LjA3ODEyNSAtNS40MjE4NzUgQyAyMi44NjcxODggLTMuMjM0Mzc1IDIxLjQ2ODc1IC0xLjY3OTY4OCAxOS44NzUgLTAuNzY1NjI1IEMgMTguMjgxMjUgMC4xNDA2MjUgMTYuMzA0Njg4IDAuNTkzNzUgMTMuOTUzMTI1IDAuNTkzNzUgQyAxMC40NzI2NTYgMC41OTM3NSA3LjkyNTc4MSAtMC4yNjk1MzEgNi4zMTI1IC0yIEMgNC42OTUzMTIgLTMuNzI2NTYyIDMuODkwNjI1IC02LjU4NTkzOCAzLjg5MDYyNSAtMTAuNTc4MTI1IEwgMy44OTA2MjUgLTMxLjcwMzEyNSBaIE0gOS4yMDMxMjUgLTMxLjcwMzEyNSAiLz48L2c+PC9nPjwvZz48ZyBmaWxsPSIjZmZmZmZmIiBmaWxsLW9wYWNpdHk9IjEiPjxnIHRyYW5zZm9ybT0idHJhbnNsYXRlKDczNS40ODA0MzcsIDEyMjMuMDYxMzMxKSI+PGc+PHBhdGggZD0iTSA0LjE1NjI1IDAgTCA0LjE1NjI1IC0yNC4zMTI1IEMgNC4xNTYyNSAtMjYuNTM5MDYyIDQuMDk3NjU2IC0yOS4wMDM5MDYgMy45ODQzNzUgLTMxLjcwMzEyNSBMIDguOTY4NzUgLTMxLjcwMzEyNSBDIDkuMTI1IC0yOC4xMDkzNzUgOS4yMDMxMjUgLTI1Ljk0NTMxMiA5LjIwMzEyNSAtMjUuMjE4NzUgTCA5LjMxMjUgLTI1LjIxODc1IEMgMTAuMTU2MjUgLTI3LjkzNzUgMTEuMTI1IC0yOS43ODkwNjIgMTIuMjE4NzUgLTMwLjc4MTI1IEMgMTMuMzEyNSAtMzEuNzgxMjUgMTQuODUxNTYyIC0zMi4yODEyNSAxNi44NDM3NSAtMzIuMjgxMjUgQyAxNy41NTA3ODEgLTMyLjI4MTI1IDE4LjI2NTYyNSAtMzIuMTg3NSAxOC45ODQzNzUgLTMyIEwgMTguOTg0Mzc1IC0yNy4xNTYyNSBDIDE4LjI4NTE1NiAtMjcuMzUxNTYyIDE3LjM0NzY1NiAtMjcuNDUzMTI1IDE2LjE3MTg3NSAtMjcuNDUzMTI1IEMgMTMuOTg0Mzc1IC0yNy40NTMxMjUgMTIuMzEyNSAtMjYuNTA3ODEyIDExLjE1NjI1IC0yNC42MjUgQyAxMC4wMDc4MTIgLTIyLjczODI4MSA5LjQzNzUgLTIwLjAzOTA2MiA5LjQzNzUgLTE2LjUzMTI1IEwgOS40Mzc1IDAgWiBNIDQuMTU2MjUgMCAiLz48L2c+PC9nPjwvZz48ZyBmaWxsPSIjZmZmZmZmIiBmaWxsLW9wYWNpdHk9IjEiPjxnIHRyYW5zZm9ybT0idHJhbnNsYXRlKDc2NC40NjA5MDMsIDEyMjMuMDYxMzMxKSI+PGc+PHBhdGggZD0iTSAxMi4xMjUgMC41OTM3NSBDIDguOTQ1MzEyIDAuNTkzNzUgNi41NTQ2ODggLTAuMjQyMTg4IDQuOTUzMTI1IC0xLjkyMTg3NSBDIDMuMzQ3NjU2IC0zLjYwOTM3NSAyLjU0Njg3NSAtNS45MTQwNjIgMi41NDY4NzUgLTguODQzNzUgQyAyLjU0Njg3NSAtMTIuMTI1IDMuNjI1IC0xNC42NDQ1MzEgNS43ODEyNSAtMTYuNDA2MjUgQyA3Ljk0NTMxMiAtMTguMTY0MDYyIDExLjQyOTY4OCAtMTkuMTAxNTYyIDE2LjIzNDM3NSAtMTkuMjE4NzUgTCAyMy4zNDM3NSAtMTkuMzQzNzUgTCAyMy4zNDM3NSAtMjEuMDYyNSBDIDIzLjM0Mzc1IC0yMy42NDQ1MzEgMjIuNzk2ODc1IC0yNS40ODgyODEgMjEuNzAzMTI1IC0yNi41OTM3NSBDIDIwLjYwOTM3NSAtMjcuNzA3MDMxIDE4Ljg5MDYyNSAtMjguMjY1NjI1IDE2LjU0Njg3NSAtMjguMjY1NjI1IEMgMTQuMTkxNDA2IC0yOC4yNjU2MjUgMTIuNDcyNjU2IC0yNy44NjMyODEgMTEuMzkwNjI1IC0yNy4wNjI1IEMgMTAuMzE2NDA2IC0yNi4yNjk1MzEgOS42NzU3ODEgLTI0Ljk5MjE4OCA5LjQ2ODc1IC0yMy4yMzQzNzUgTCAzLjk1MzEyNSAtMjMuNzM0Mzc1IEMgNC44NDc2NTYgLTI5LjQyOTY4OCA5LjA4NTkzOCAtMzIuMjgxMjUgMTYuNjcxODc1IC0zMi4yODEyNSBDIDIwLjY0ODQzOCAtMzIuMjgxMjUgMjMuNjQ0NTMxIC0zMS4zNjcxODggMjUuNjU2MjUgLTI5LjU0Njg3NSBDIDI3LjY3NTc4MSAtMjcuNzIyNjU2IDI4LjY4NzUgLTI1LjA4MjAzMSAyOC42ODc1IC0yMS42MjUgTCAyOC42ODc1IC03Ljk2ODc1IEMgMjguNjg3NSAtNi40MDYyNSAyOC44OTA2MjUgLTUuMjI2NTYyIDI5LjI5Njg3NSAtNC40Mzc1IEMgMjkuNzAzMTI1IC0zLjY0NDUzMSAzMC40ODQzNzUgLTMuMjUgMzEuNjQwNjI1IC0zLjI1IEMgMzIuMTQ4NDM4IC0zLjI1IDMyLjcyNjU2MiAtMy4zMTY0MDYgMzMuMzc1IC0zLjQ1MzEyNSBMIDMzLjM3NSAtMC4xNzE4NzUgQyAzMi4wMzkwNjIgMC4xNDA2MjUgMzAuNjc5Njg4IDAuMjk2ODc1IDI5LjI5Njg3NSAwLjI5Njg3NSBDIDI3LjM0NzY1NiAwLjI5Njg3NSAyNS45MjU3ODEgLTAuMjEwOTM4IDI1LjAzMTI1IC0xLjIzNDM3NSBDIDI0LjE0NDUzMSAtMi4yNjU2MjUgMjMuNjQ0NTMxIC0zLjg3NSAyMy41MzEyNSAtNi4wNjI1IEwgMjMuMzQzNzUgLTYuMDYyNSBDIDIyIC0zLjY0NDUzMSAyMC40Mjk2ODggLTEuOTI5Njg4IDE4LjY0MDYyNSAtMC45MjE4NzUgQyAxNi44NTkzNzUgMC4wODU5Mzc1IDE0LjY4NzUgMC41OTM3NSAxMi4xMjUgMC41OTM3NSBaIE0gMTMuMzI4MTI1IC0zLjM3NSBDIDE1LjI2NTYyNSAtMy4zNzUgMTYuOTg0Mzc1IC0zLjgxMjUgMTguNDg0Mzc1IC00LjY4NzUgQyAxOS45OTIxODggLTUuNTYyNSAyMS4xNzk2ODggLTYuNzY1NjI1IDIyLjA0Njg3NSAtOC4yOTY4NzUgQyAyMi45MTAxNTYgLTkuODM1OTM4IDIzLjM0Mzc1IC0xMS40MTQwNjIgMjMuMzQzNzUgLTEzLjAzMTI1IEwgMjMuMzQzNzUgLTE1LjY0MDYyNSBMIDE3LjU3ODEyNSAtMTUuNTMxMjUgQyAxNS4wOTc2NTYgLTE1LjQ4ODI4MSAxMy4yMTg3NSAtMTUuMjM0Mzc1IDExLjkzNzUgLTE0Ljc2NTYyNSBDIDEwLjY1NjI1IC0xNC4yOTY4NzUgOS42NzE4NzUgLTEzLjU3MDMxMiA4Ljk4NDM3NSAtMTIuNTkzNzUgQyA4LjMwNDY4OCAtMTEuNjI1IDcuOTY4NzUgLTEwLjM0NzY1NiA3Ljk2ODc1IC04Ljc2NTYyNSBDIDcuOTY4NzUgLTcuMDQ2ODc1IDguNDI5Njg4IC01LjcxODc1IDkuMzU5Mzc1IC00Ljc4MTI1IEMgMTAuMjg1MTU2IC0zLjg0Mzc1IDExLjYwOTM3NSAtMy4zNzUgMTMuMzI4MTI1IC0zLjM3NSBaIE0gMTMuMzI4MTI1IC0zLjM3NSAiLz48L2c+PC9nPjwvZz48ZyBmaWxsPSIjZmZmZmZmIiBmaWxsLW9wYWNpdHk9IjEiPjxnIHRyYW5zZm9ybT0idHJhbnNsYXRlKDgwNi44MzAwNCwgMTIyMy4wNjEzMzEpIj48Zz48cGF0aCBkPSJNIDE3Ljk1MzEyNSAwIEwgMTEuNzE4NzUgMCBMIDAuMjAzMTI1IC0zMS43MDMxMjUgTCA1LjgyODEyNSAtMzEuNzAzMTI1IEwgMTIuNzk2ODc1IC0xMS4wNzgxMjUgQyAxMy4wNTQ2ODggLTEwLjI5Njg3NSAxMy43MzQzNzUgLTcuOTc2NTYyIDE0LjgyODEyNSAtNC4xMjUgTCAxNS44NDM3NSAtNy41NjI1IEwgMTcgLTExLjAxNTYyNSBMIDI0LjIwMzEyNSAtMzEuNzAzMTI1IEwgMjkuNzk2ODc1IC0zMS43MDMxMjUgWiBNIDE3Ljk1MzEyNSAwICIvPjwvZz48L2c+PC9nPjxnIGZpbGw9IiNmZmZmZmYiIGZpbGwtb3BhY2l0eT0iMSI+PGcgdHJhbnNmb3JtPSJ0cmFuc2xhdGUoODQ1LjgzMDAzNywgMTIyMy4wNjEzMzEpIj48Zz48cGF0aCBkPSJNIDQuMDE1NjI1IC0zOC40Mzc1IEwgNC4wMTU2MjUgLTQzLjQ4NDM3NSBMIDkuMjgxMjUgLTQzLjQ4NDM3NSBMIDkuMjgxMjUgLTM4LjQzNzUgWiBNIDQuMDE1NjI1IDAgTCA0LjAxNTYyNSAtMzEuNzAzMTI1IEwgOS4yODEyNSAtMzEuNzAzMTI1IEwgOS4yODEyNSAwIFogTSA0LjAxNTYyNSAwICIvPjwvZz48L2c+PC9nPjxnIGZpbGw9IiNmZmZmZmYiIGZpbGwtb3BhY2l0eT0iMSI+PGcgdHJhbnNmb3JtPSJ0cmFuc2xhdGUoODY4LjE2MDExMywgMTIyMy4wNjEzMzEpIj48Zz48cGF0aCBkPSJNIDI0LjA0Njg3NSAtNS4wOTM3NSBDIDIzLjA3ODEyNSAtMy4wNjI1IDIxLjc4NTE1NiAtMS42MDE1NjIgMjAuMTcxODc1IC0wLjcxODc1IEMgMTguNTU0Njg4IDAuMTU2MjUgMTYuNTYyNSAwLjU5Mzc1IDE0LjE4NzUgMC41OTM3NSBDIDEwLjE3NTc4MSAwLjU5Mzc1IDcuMjI2NTYyIC0wLjc1MzkwNiA1LjM0Mzc1IC0zLjQ1MzEyNSBDIDMuNDU3MDMxIC02LjE0ODQzOCAyLjUxNTYyNSAtMTAuMjM0Mzc1IDIuNTE1NjI1IC0xNS43MDMxMjUgQyAyLjUxNTYyNSAtMjYuNzUzOTA2IDYuNDA2MjUgLTMyLjI4MTI1IDE0LjE4NzUgLTMyLjI4MTI1IEMgMTYuNTgyMDMxIC0zMi4yODEyNSAxOC41ODIwMzEgLTMxLjg0Mzc1IDIwLjE4NzUgLTMwLjk2ODc1IEMgMjEuNzg5MDYyIC0zMC4wOTM3NSAyMy4wNzgxMjUgLTI4LjY5NTMxMiAyNC4wNDY4NzUgLTI2Ljc4MTI1IEwgMjQuMTA5Mzc1IC0yNi43ODEyNSBMIDI0LjA0Njg3NSAtMzAuMzI4MTI1IEwgMjQuMDQ2ODc1IC00My40ODQzNzUgTCAyOS4zMjgxMjUgLTQzLjQ4NDM3NSBMIDI5LjMyODEyNSAtNi41MzEyNSBDIDI5LjMyODEyNSAtMy4yMjY1NjIgMjkuMzgyODEyIC0xLjA1MDc4MSAyOS41IDAgTCAyNC40Njg3NSAwIEMgMjQuNDA2MjUgLTAuMzEyNSAyNC4zMzU5MzggLTEuMDM1MTU2IDI0LjI2NTYyNSAtMi4xNzE4NzUgQyAyNC4yMDMxMjUgLTMuMzA0Njg4IDI0LjE3MTg3NSAtNC4yODEyNSAyNC4xNzE4NzUgLTUuMDkzNzUgWiBNIDguMDYyNSAtMTUuODc1IEMgOC4wNjI1IC0xMS40NDUzMTIgOC42NDQ1MzEgLTguMjczNDM4IDkuODEyNSAtNi4zNTkzNzUgQyAxMC45ODgyODEgLTQuNDQxNDA2IDEyLjg5NDUzMSAtMy40ODQzNzUgMTUuNTMxMjUgLTMuNDg0Mzc1IEMgMTguNTE5NTMxIC0zLjQ4NDM3NSAyMC42ODc1IC00LjUxOTUzMSAyMi4wMzEyNSAtNi41OTM3NSBDIDIzLjM3NSAtOC42NjQwNjIgMjQuMDQ2ODc1IC0xMS44Nzg5MDYgMjQuMDQ2ODc1IC0xNi4yMzQzNzUgQyAyNC4wNDY4NzUgLTIwLjQyOTY4OCAyMy4zNzUgLTIzLjUwMzkwNiAyMi4wMzEyNSAtMjUuNDUzMTI1IEMgMjAuNjg3NSAtMjcuNDEwMTU2IDE4LjUzOTA2MiAtMjguMzkwNjI1IDE1LjU5Mzc1IC0yOC4zOTA2MjUgQyAxMi45Mzc1IC0yOC4zOTA2MjUgMTEuMDE1NjI1IC0yNy40MDYyNSA5LjgyODEyNSAtMjUuNDM3NSBDIDguNjQ4NDM4IC0yMy40NzY1NjIgOC4wNjI1IC0yMC4yODkwNjIgOC4wNjI1IC0xNS44NzUgWiBNIDguMDYyNSAtMTUuODc1ICIvPjwvZz48L2c+PC9nPjxnIGZpbGw9IiNmZmZmZmYiIGZpbGwtb3BhY2l0eT0iMSI+PGcgdHJhbnNmb3JtPSJ0cmFuc2xhdGUoOTEwLjUyOTI1LCAxMjIzLjA2MTMzMSkiPjxnPjxwYXRoIGQ9Ik0gMTIuMTI1IDAuNTkzNzUgQyA4Ljk0NTMxMiAwLjU5Mzc1IDYuNTU0Njg4IC0wLjI0MjE4OCA0Ljk1MzEyNSAtMS45MjE4NzUgQyAzLjM0NzY1NiAtMy42MDkzNzUgMi41NDY4NzUgLTUuOTE0MDYyIDIuNTQ2ODc1IC04Ljg0Mzc1IEMgMi41NDY4NzUgLTEyLjEyNSAzLjYyNSAtMTQuNjQ0NTMxIDUuNzgxMjUgLTE2LjQwNjI1IEMgNy45NDUzMTIgLTE4LjE2NDA2MiAxMS40Mjk2ODggLTE5LjEwMTU2MiAxNi4yMzQzNzUgLTE5LjIxODc1IEwgMjMuMzQzNzUgLTE5LjM0Mzc1IEwgMjMuMzQzNzUgLTIxLjA2MjUgQyAyMy4zNDM3NSAtMjMuNjQ0NTMxIDIyLjc5Njg3NSAtMjUuNDg4MjgxIDIxLjcwMzEyNSAtMjYuNTkzNzUgQyAyMC42MDkzNzUgLTI3LjcwNzAzMSAxOC44OTA2MjUgLTI4LjI2NTYyNSAxNi41NDY4NzUgLTI4LjI2NTYyNSBDIDE0LjE5MTQwNiAtMjguMjY1NjI1IDEyLjQ3MjY1NiAtMjcuODYzMjgxIDExLjM5MDYyNSAtMjcuMDYyNSBDIDEwLjMxNjQwNiAtMjYuMjY5NTMxIDkuNjc1NzgxIC0yNC45OTIxODggOS40Njg3NSAtMjMuMjM0Mzc1IEwgMy45NTMxMjUgLTIzLjczNDM3NSBDIDQuODQ3NjU2IC0yOS40Mjk2ODggOS4wODU5MzggLTMyLjI4MTI1IDE2LjY3MTg3NSAtMzIuMjgxMjUgQyAyMC42NDg0MzggLTMyLjI4MTI1IDIzLjY0NDUzMSAtMzEuMzY3MTg4IDI1LjY1NjI1IC0yOS41NDY4NzUgQyAyNy42NzU3ODEgLTI3LjcyMjY1NiAyOC42ODc1IC0yNS4wODIwMzEgMjguNjg3NSAtMjEuNjI1IEwgMjguNjg3NSAtNy45Njg3NSBDIDI4LjY4NzUgLTYuNDA2MjUgMjguODkwNjI1IC01LjIyNjU2MiAyOS4yOTY4NzUgLTQuNDM3NSBDIDI5LjcwMzEyNSAtMy42NDQ1MzEgMzAuNDg0Mzc1IC0zLjI1IDMxLjY0MDYyNSAtMy4yNSBDIDMyLjE0ODQzOCAtMy4yNSAzMi43MjY1NjIgLTMuMzE2NDA2IDMzLjM3NSAtMy40NTMxMjUgTCAzMy4zNzUgLTAuMTcxODc1IEMgMzIuMDM5MDYyIDAuMTQwNjI1IDMwLjY3OTY4OCAwLjI5Njg3NSAyOS4yOTY4NzUgMC4yOTY4NzUgQyAyNy4zNDc2NTYgMC4yOTY4NzUgMjUuOTI1NzgxIC0wLjIxMDkzOCAyNS4wMzEyNSAtMS4yMzQzNzUgQyAyNC4xNDQ1MzEgLTIuMjY1NjI1IDIzLjY0NDUzMSAtMy44NzUgMjMuNTMxMjUgLTYuMDYyNSBMIDIzLjM0Mzc1IC02LjA2MjUgQyAyMiAtMy42NDQ1MzEgMjAuNDI5Njg4IC0xLjkyOTY4OCAxOC42NDA2MjUgLTAuOTIxODc1IEMgMTYuODU5Mzc1IDAuMDg1OTM3NSAxNC42ODc1IDAuNTkzNzUgMTIuMTI1IDAuNTkzNzUgWiBNIDEzLjMyODEyNSAtMy4zNzUgQyAxNS4yNjU2MjUgLTMuMzc1IDE2Ljk4NDM3NSAtMy44MTI1IDE4LjQ4NDM3NSAtNC42ODc1IEMgMTkuOTkyMTg4IC01LjU2MjUgMjEuMTc5Njg4IC02Ljc2NTYyNSAyMi4wNDY4NzUgLTguMjk2ODc1IEMgMjIuOTEwMTU2IC05LjgzNTkzOCAyMy4zNDM3NSAtMTEuNDE0MDYyIDIzLjM0Mzc1IC0xMy4wMzEyNSBMIDIzLjM0Mzc1IC0xNS42NDA2MjUgTCAxNy41NzgxMjUgLTE1LjUzMTI1IEMgMTUuMDk3NjU2IC0xNS40ODgyODEgMTMuMjE4NzUgLTE1LjIzNDM3NSAxMS45Mzc1IC0xNC43NjU2MjUgQyAxMC42NTYyNSAtMTQuMjk2ODc1IDkuNjcxODc1IC0xMy41NzAzMTIgOC45ODQzNzUgLTEyLjU5Mzc1IEMgOC4zMDQ2ODggLTExLjYyNSA3Ljk2ODc1IC0xMC4zNDc2NTYgNy45Njg3NSAtOC43NjU2MjUgQyA3Ljk2ODc1IC03LjA0Njg3NSA4LjQyOTY4OCAtNS43MTg3NSA5LjM1OTM3NSAtNC43ODEyNSBDIDEwLjI4NTE1NiAtMy44NDM3NSAxMS42MDkzNzUgLTMuMzc1IDEzLjMyODEyNSAtMy4zNzUgWiBNIDEzLjMyODEyNSAtMy4zNzUgIi8+PC9nPjwvZz48L2c+PGcgZmlsbD0iI2ZmZmZmZiIgZmlsbC1vcGFjaXR5PSIxIj48ZyB0cmFuc2Zvcm09InRyYW5zbGF0ZSg5NTIuODk4Mzg3LCAxMjIzLjA2MTMzMSkiPjxnPjxwYXRoIGQ9Ik0gNC41NzgxMjUgMCBMIDQuNTc4MTI1IC00LjQ4NDM3NSBMIDE1LjA5Mzc1IC00LjQ4NDM3NSBMIDE1LjA5Mzc1IC0zNi4yMzQzNzUgTCA1Ljc2NTYyNSAtMjkuNTkzNzUgTCA1Ljc2NTYyNSAtMzQuNTc4MTI1IEwgMTUuNTMxMjUgLTQxLjI4MTI1IEwgMjAuMzkwNjI1IC00MS4yODEyNSBMIDIwLjM5MDYyNSAtNC40ODQzNzUgTCAzMC40Mzc1IC00LjQ4NDM3NSBMIDMwLjQzNzUgMCBaIE0gNC41NzgxMjUgMCAiLz48L2c+PC9nPjwvZz48ZyBmaWxsPSIjZmZmZmZmIiBmaWxsLW9wYWNpdHk9IjEiPjxnIHRyYW5zZm9ybT0idHJhbnNsYXRlKDk5NS4yNjc1MjQsIDEyMjMuMDYxMzMxKSI+PGc+PHBhdGggZD0iTSAyNS44MTI1IC05LjM0Mzc1IEwgMjUuODEyNSAwIEwgMjAuODI4MTI1IDAgTCAyMC44MjgxMjUgLTkuMzQzNzUgTCAxLjM3NSAtOS4zNDM3NSBMIDEuMzc1IC0xMy40NTMxMjUgTCAyMC4yODEyNSAtNDEuMjgxMjUgTCAyNS44MTI1IC00MS4yODEyNSBMIDI1LjgxMjUgLTEzLjUgTCAzMS42MDkzNzUgLTEzLjUgTCAzMS42MDkzNzUgLTkuMzQzNzUgWiBNIDIwLjgyODEyNSAtMzUuMzI4MTI1IEMgMjAuNzg1MTU2IC0zNS4yMTA5MzggMjAuNTA3ODEyIC0zNC42OTUzMTIgMjAgLTMzLjc4MTI1IEMgMTkuNSAtMzIuODYzMjgxIDE5LjEyNSAtMzIuMjE4NzUgMTguODc1IC0zMS44NDM3NSBMIDguMjk2ODc1IC0xNi4yNjU2MjUgTCA2LjcwMzEyNSAtMTQuMDkzNzUgTCA2LjIzNDM3NSAtMTMuNSBMIDIwLjgyODEyNSAtMTMuNSBaIE0gMjAuODI4MTI1IC0zNS4zMjgxMjUgIi8+PC9nPjwvZz48L2c+PGcgZmlsbD0iI2ZmZmZmZiIgZmlsbC1vcGFjaXR5PSIxIj48ZyB0cmFuc2Zvcm09InRyYW5zbGF0ZSgxMDM3LjYzNjY2MSwgMTIyMy4wNjEzMzEpIj48Zz48cGF0aCBkPSJNIDUuNDg0Mzc1IDAgTCA1LjQ4NDM3NSAtNi40MjE4NzUgTCAxMS4xODc1IC02LjQyMTg3NSBMIDExLjE4NzUgMCBaIE0gNS40ODQzNzUgMCAiLz48L2c+PC9nPjwvZz48ZyBmaWxsPSIjZmZmZmZmIiBmaWxsLW9wYWNpdHk9IjEiPjxnIHRyYW5zZm9ybT0idHJhbnNsYXRlKDEwNjMuMzA2NTgxLCAxMjIzLjA2MTMzMSkiPjxnPjxwYXRoIGQ9Ik0gOC4wNjI1IC0xNiBDIDguMDYyNSAtMTEuNzgxMjUgOC43MjI2NTYgLTguNjU2MjUgMTAuMDQ2ODc1IC02LjYyNSBDIDExLjM3ODkwNiAtNC41OTM3NSAxMy4zODI4MTIgLTMuNTc4MTI1IDE2LjA2MjUgLTMuNTc4MTI1IEMgMTcuOTM3NSAtMy41NzgxMjUgMTkuNSAtNC4wODIwMzEgMjAuNzUgLTUuMDkzNzUgQyAyMi4wMDc4MTIgLTYuMTEzMjgxIDIyLjc4OTA2MiAtNy42NzU3ODEgMjMuMDkzNzUgLTkuNzgxMjUgTCAyOC40MjE4NzUgLTkuNDM3NSBDIDI4LjAwMzkwNiAtNi4zODI4MTIgMjYuNzAzMTI1IC0zLjk0NTMxMiAyNC41MTU2MjUgLTIuMTI1IEMgMjIuMzI4MTI1IC0wLjMxMjUgMTkuNTU0Njg4IDAuNTkzNzUgMTYuMjAzMTI1IDAuNTkzNzUgQyAxMS43NjU2MjUgMC41OTM3NSA4LjM3ODkwNiAtMC44MDQ2ODggNi4wNDY4NzUgLTMuNjA5Mzc1IEMgMy43MTA5MzggLTYuNDIxODc1IDIuNTQ2ODc1IC0xMC41MDc4MTIgMi41NDY4NzUgLTE1Ljg3NSBDIDIuNTQ2ODc1IC0yMS4yMDcwMzEgMy43MTg3NSAtMjUuMjczNDM4IDYuMDYyNSAtMjguMDc4MTI1IEMgOC40MDYyNSAtMzAuODc4OTA2IDExLjc2NTYyNSAtMzIuMjgxMjUgMTYuMTQwNjI1IC0zMi4yODEyNSBDIDE5LjM3ODkwNiAtMzIuMjgxMjUgMjIuMDY2NDA2IC0zMS40NDE0MDYgMjQuMjAzMTI1IC0yOS43NjU2MjUgQyAyNi4zNDc2NTYgLTI4LjA4NTkzOCAyNy42OTUzMTIgLTI1Ljc3MzQzOCAyOC4yNSAtMjIuODI4MTI1IEwgMjIuODI4MTI1IC0yMi40MDYyNSBDIDIyLjU0Njg3NSAtMjQuMTY0MDYyIDIxLjg0NzY1NiAtMjUuNTYyNSAyMC43MzQzNzUgLTI2LjU5Mzc1IEMgMTkuNjI4OTA2IC0yNy42MzI4MTIgMTguMDUwNzgxIC0yOC4xNTYyNSAxNiAtMjguMTU2MjUgQyAxMy4yMDcwMzEgLTI4LjE1NjI1IDExLjE4NzUgLTI3LjIyNjU2MiA5LjkzNzUgLTI1LjM3NSBDIDguNjg3NSAtMjMuNTE5NTMxIDguMDYyNSAtMjAuMzk0NTMxIDguMDYyNSAtMTYgWiBNIDguMDYyNSAtMTYgIi8+PC9nPjwvZz48L2c+PGcgZmlsbD0iI2ZmZmZmZiIgZmlsbC1vcGFjaXR5PSIxIj48ZyB0cmFuc2Zvcm09InRyYW5zbGF0ZSgxMTAyLjMwNjU3OCwgMTIyMy4wNjEzMzEpIj48Zz48cGF0aCBkPSJNIDMwLjg0Mzc1IC0xNS44NzUgQyAzMC44NDM3NSAtMTAuMzMyMDMxIDI5LjYyNSAtNi4yMDMxMjUgMjcuMTg3NSAtMy40ODQzNzUgQyAyNC43NSAtMC43NjU2MjUgMjEuMjAzMTI1IDAuNTkzNzUgMTYuNTQ2ODc1IDAuNTkzNzUgQyAxMS45MjE4NzUgMC41OTM3NSA4LjQyNTc4MSAtMC44MTY0MDYgNi4wNjI1IC0zLjY0MDYyNSBDIDMuNjk1MzEyIC02LjQ2MDkzOCAyLjUxNTYyNSAtMTAuNTM5MDYyIDIuNTE1NjI1IC0xNS44NzUgQyAyLjUxNTYyNSAtMjYuODEyNSA3LjI1MzkwNiAtMzIuMjgxMjUgMTYuNzM0Mzc1IC0zMi4yODEyNSBDIDIxLjU3ODEyNSAtMzIuMjgxMjUgMjUuMTQwNjI1IC0zMC45NDUzMTIgMjcuNDIxODc1IC0yOC4yODEyNSBDIDI5LjcwMzEyNSAtMjUuNjEzMjgxIDMwLjg0Mzc1IC0yMS40NzY1NjIgMzAuODQzNzUgLTE1Ljg3NSBaIE0gMjUuMzEyNSAtMTUuODc1IEMgMjUuMzEyNSAtMjAuMjUgMjQuNjYwMTU2IC0yMy40MjU3ODEgMjMuMzU5Mzc1IC0yNS40MDYyNSBDIDIyLjA2NjQwNiAtMjcuMzk0NTMxIDE5Ljg4MjgxMiAtMjguMzkwNjI1IDE2LjgxMjUgLTI4LjM5MDYyNSBDIDEzLjcyNjU2MiAtMjguMzkwNjI1IDExLjUgLTI3LjM3ODkwNiAxMC4xMjUgLTI1LjM1OTM3NSBDIDguNzUgLTIzLjMzNTkzOCA4LjA2MjUgLTIwLjE3NTc4MSA4LjA2MjUgLTE1Ljg3NSBDIDguMDYyNSAtMTEuNjk1MzEyIDguNzM4MjgxIC04LjU1NDY4OCAxMC4wOTM3NSAtNi40NTMxMjUgQyAxMS40NDUzMTIgLTQuMzU5Mzc1IDEzLjU4MjAzMSAtMy4zMTI1IDE2LjUgLTMuMzEyNSBDIDE5LjY1NjI1IC0zLjMxMjUgMjEuOTEwMTU2IC00LjMyODEyNSAyMy4yNjU2MjUgLTYuMzU5Mzc1IEMgMjQuNjI4OTA2IC04LjM5MDYyNSAyNS4zMTI1IC0xMS41NjI1IDI1LjMxMjUgLTE1Ljg3NSBaIE0gMjUuMzEyNSAtMTUuODc1ICIvPjwvZz48L2c+PC9nPjxnIGZpbGw9IiNmZmZmZmYiIGZpbGwtb3BhY2l0eT0iMSI+PGcgdHJhbnNmb3JtPSJ0cmFuc2xhdGUoMTE0NC42NzU3MTUsIDEyMjMuMDYxMzMxKSI+PGc+PHBhdGggZD0iTSAyMi41IDAgTCAyMi41IC0yMC4wOTM3NSBDIDIyLjUgLTIzLjE2NDA2MiAyMi4wNzgxMjUgLTI1LjI4NTE1NiAyMS4yMzQzNzUgLTI2LjQ1MzEyNSBDIDIwLjM5ODQzOCAtMjcuNjI4OTA2IDE4Ljg5MDYyNSAtMjguMjE4NzUgMTYuNzAzMTI1IC0yOC4yMTg3NSBDIDE0LjQ1MzEyNSAtMjguMjE4NzUgMTIuNjcxODc1IC0yNy4zNTkzNzUgMTEuMzU5Mzc1IC0yNS42NDA2MjUgQyAxMC4wNTQ2ODggLTIzLjkyMTg3NSA5LjQwNjI1IC0yMS41IDkuNDA2MjUgLTE4LjM3NSBMIDkuNDA2MjUgMCBMIDQuMTU2MjUgMCBMIDQuMTU2MjUgLTI0LjkzNzUgQyA0LjE1NjI1IC0yOC42MjUgNC4wOTc2NTYgLTMwLjg3ODkwNiAzLjk4NDM3NSAtMzEuNzAzMTI1IEwgOC45Njg3NSAtMzEuNzAzMTI1IEMgOC45ODgyODEgLTMxLjU5NzY1NiA5LjAwMzkwNiAtMzEuMzMyMDMxIDkuMDE1NjI1IC0zMC45MDYyNSBDIDkuMDM1MTU2IC0zMC40NzY1NjIgOS4wNjI1IC0yOS45ODQzNzUgOS4wOTM3NSAtMjkuNDIxODc1IEMgOS4xMjUgLTI4Ljg2NzE4OCA5LjE2MDE1NiAtMjcuODIwMzEyIDkuMjAzMTI1IC0yNi4yODEyNSBMIDkuMjgxMjUgLTI2LjI4MTI1IEMgMTAuNDE0MDYyIC0yOC41MzEyNSAxMS43MTA5MzggLTMwLjA5Mzc1IDEzLjE3MTg3NSAtMzAuOTY4NzUgQyAxNC42NDA2MjUgLTMxLjg0Mzc1IDE2LjQyOTY4OCAtMzIuMjgxMjUgMTguNTQ2ODc1IC0zMi4yODEyNSBDIDIwLjk1MzEyNSAtMzIuMjgxMjUgMjIuODUxNTYyIC0zMS44MDA3ODEgMjQuMjUgLTMwLjg0Mzc1IEMgMjUuNjQ0NTMxIC0yOS44OTQ1MzEgMjYuNjEzMjgxIC0yOC4zNzUgMjcuMTU2MjUgLTI2LjI4MTI1IEwgMjcuMjUgLTI2LjI4MTI1IEMgMjguMzQzNzUgLTI4LjQwNjI1IDI5LjY2NDA2MiAtMjkuOTM3NSAzMS4yMTg3NSAtMzAuODc1IEMgMzIuNzY5NTMxIC0zMS44MTI1IDM0LjY0ODQzOCAtMzIuMjgxMjUgMzYuODU5Mzc1IC0zMi4yODEyNSBDIDQwLjA1NDY4OCAtMzIuMjgxMjUgNDIuMzgyODEyIC0zMS40MTAxNTYgNDMuODQzNzUgLTI5LjY3MTg3NSBDIDQ1LjMwMDc4MSAtMjcuOTQxNDA2IDQ2LjAzMTI1IC0yNS4wOTM3NSA0Ni4wMzEyNSAtMjEuMTI1IEwgNDYuMDMxMjUgMCBMIDQwLjgxMjUgMCBMIDQwLjgxMjUgLTIwLjA5Mzc1IEMgNDAuODEyNSAtMjMuMTY0MDYyIDQwLjM5MDYyNSAtMjUuMjg1MTU2IDM5LjU0Njg3NSAtMjYuNDUzMTI1IEMgMzguNzEwOTM4IC0yNy42Mjg5MDYgMzcuMjAzMTI1IC0yOC4yMTg3NSAzNS4wMTU2MjUgLTI4LjIxODc1IEMgMzIuNzAzMTI1IC0yOC4yMTg3NSAzMC45MDYyNSAtMjcuMzYzMjgxIDI5LjYyNSAtMjUuNjU2MjUgQyAyOC4zNTE1NjIgLTIzLjk0NTMxMiAyNy43MTg3NSAtMjEuNTE5NTMxIDI3LjcxODc1IC0xOC4zNzUgTCAyNy43MTg3NSAwIFogTSAyMi41IDAgIi8+PC9nPjwvZz48L2c+PC9zdmc+" alt="Casa Pura Vida 14">
+    </div>
+    <div class="sidebar-nav">
+      <div class="nav-item active" onclick="showPage('overzicht')">
+        <svg viewBox="0 0 16 16" fill="none"><rect x="1" y="1" width="6" height="6" rx="1.5" fill="currentColor"/><rect x="9" y="1" width="6" height="6" rx="1.5" fill="currentColor" opacity=".4"/><rect x="1" y="9" width="6" height="6" rx="1.5" fill="currentColor" opacity=".4"/><rect x="9" y="9" width="6" height="6" rx="1.5" fill="currentColor" opacity=".4"/></svg>
+        Overzicht
+      </div>
+      <div class="nav-item" onclick="showPage('boekingen')">
+        <svg viewBox="0 0 16 16" fill="none"><rect x="1" y="3" width="14" height="11" rx="1.5" stroke="currentColor" stroke-width="1.3"/><path d="M5 1v4M11 1v4M1 7h14" stroke="currentColor" stroke-width="1.3"/></svg>
+        Boekingen
+        <span class="nav-badge" id="werk-badge" style="display:none"></span>
+      </div>
+      <div class="nav-item" onclick="showPage('werkvoorraad')">
+        <svg viewBox="0 0 16 16" fill="none"><path d="M2 4h12M2 8h8M2 12h5" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>
+        Werkvoorraad
+        <span class="nav-badge" id="wv-badge" style="display:none"></span>
+      </div>
+      <div class="nav-item" onclick="showPage('beschikbaarheid')">
+        <svg viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="6.5" stroke="currentColor" stroke-width="1.3"/><path d="M8 4v4l3 2" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>
+        Beschikbaarheid
+      </div>
+      <div class="nav-item" onclick="showPage('instellingen')">
+        <svg viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="2" stroke="currentColor" stroke-width="1.3"/><path d="M8 1v2M8 13v2M1 8h2M13 8h2M3.05 3.05l1.41 1.41M11.54 11.54l1.41 1.41M3.05 12.95l1.41-1.41M11.54 4.46l1.41-1.41" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>
+        Instellingen
+      </div>
+    </div>
+    <div class="sidebar-footer">
+      <div class="keyholder-info">
+        <strong>Keyholder</strong>
+        <span id="kh-email-display">info@vettschoon.com</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- MAIN -->
+  <div class="main">
+    <div class="topbar">
+      <div class="topbar-left">
+        <div class="topbar-title" id="page-title">Overzicht</div>
+      </div>
+      <div class="topbar-right">
+        <span class="badge-alert" id="topbar-alert" style="display:none" onclick="showPage('werkvoorraad')"></span>
+        <span id="user-name-display" style="font-size:12px;color:var(--text-muted);"></span>
+        <button class="btn" onclick="showPage('gebruikers')">Beheerders</button>
+        <button class="btn" onclick="handleLogout()">Uitloggen</button>
+        <label class="btn btn-primary" style="cursor:pointer">
+          + CSV uploaden
+          <input type="file" accept=".csv" class="upload-input" id="csv-input" onchange="handleCSV(event)">
+        </label>
+      </div>
+    </div>
+
+    <!-- PAGE: OVERZICHT -->
+    <div id="page-overzicht" class="content">
+      <div id="first-run-banner" class="info-banner" style="display:none">
+        <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="7" stroke="#185FA5" stroke-width="1.5"/><path d="M8 7v5M8 5v1" stroke="#185FA5" stroke-width="1.5" stroke-linecap="round"/></svg>
+        Eerste upload gedetecteerd — er wordt geen communicatie verstuurd. Werkvoorraad wordt ingesteld voor toekomstige uploads.
+      </div>
+      <div class="metrics" id="metrics-grid">
+        <div class="metric-card"><div class="metric-label">Actieve boekingen</div><div class="metric-value" id="m-active">—</div><div class="metric-sub" id="m-active-sub">aankomend + lopend jaar</div></div>
+        <div class="metric-card"><div class="metric-label">Eerstvolgende aankomst</div><div class="metric-value" id="m-next" style="font-size:16px;padding-top:4px">—</div><div class="metric-sub" id="m-next-sub">—</div></div>
+        <div class="metric-card alert"><div class="metric-label">Werkvoorraad</div><div class="metric-value" id="m-werk">—</div><div class="metric-sub">acties openstaand</div></div>
+        <div class="metric-card"><div class="metric-label">Omzet (bevestigd)</div><div class="metric-value" id="m-omzet" style="font-size:18px;padding-top:4px">—</div><div class="metric-sub">huurprijs lopend kalenderjaar</div></div>
+      </div>
+      <div id="no-data-state" class="upload-area" onclick="document.getElementById('csv-input').click()">
+        <div style="font-size:32px;margin-bottom:10px">📂</div>
+        <div class="upload-area-text">Upload je wekelijkse CSV om te beginnen</div>
+        <div class="upload-area-sub">Huurkalender_export_*.csv</div>
+      </div>
+      <div id="werkvoorraad-preview" style="display:none"></div>
+    </div>
+
+    <!-- PAGE: BOEKINGEN -->
+    <div id="page-boekingen" style="display:none; flex-direction:column; flex:1;">
+      <div class="section" style="margin:24px;flex:1;">
+        <div class="tab-row">
+          <div class="tabs">
+            <div class="tab active" onclick="setFilter('alle',this)">Alle</div>
+            <div class="tab" onclick="setFilter('bevestigd',this)">Bevestigd</div>
+            <div class="tab" onclick="setFilter('optie',this)">Optie</div>
+            <div class="tab" onclick="setFilter('geannuleerd',this)">Geannuleerd</div>
+            <div class="tab" onclick="setFilter('eigen',this)">Eigen gebruik</div>
+          </div>
+          <div class="tab-actions">
+            <div class="filter-chips" id="filter-chips"></div>
+            <div class="view-toggle">
+              <button class="view-btn active" onclick="setView('tabel',this)">Tabel</button>
+              <button class="view-btn" onclick="setView('kalender',this)">Kalender</button>
+            </div>
+          </div>
+        </div>
+        <div id="view-tabel" class="table-wrap">
+          <table id="bookings-table">
+            <thead>
+              <tr>
+                <th>Gast</th>
+                <th>Aankomst</th>
+                <th>Vertrek</th>
+                <th>Nachten</th>
+                <th>Volw.</th>
+              <th>Kind.</th>
+                <th>Land</th>
+                <th>Bron</th>
+                <th>Huurprijs</th>
+                <th>Status</th>
+                <th>Welkomst</th>
+                <th>Gastmail</th>
+                <th>Keyholder</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody id="bookings-body"></tbody>
+          </table>
+        </div>
+        <div id="view-kalender" style="display:none">
+          <div class="calendar-wrap">
+            <div class="cal-nav">
+              <button class="btn" onclick="calPrev()">← Vorige</button>
+              <div class="cal-month" id="cal-month-label"></div>
+              <button class="btn" onclick="calNext()">Volgende →</button>
+            </div>
+            <div class="cal-grid" id="cal-grid"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- PAGE: WERKVOORRAAD -->
+    <div id="page-werkvoorraad" style="display:none" class="content">
+      <div class="section" id="wv-section">
+        <div class="section-header">
+          <div class="section-title">Werkvoorraad — acties vereist</div>
+          <div class="legend">
+            <div class="legend-item"><div class="legend-dot" style="background:var(--green)"></div>Gast</div>
+            <div class="legend-item"><div class="legend-dot" style="background:var(--blue)"></div>Keyholder</div>
+            <div class="legend-item"><div class="legend-dot" style="background:var(--red)"></div>Annulering</div>
+          </div>
+        </div>
+        <div id="wv-list"></div>
+      </div>
+    </div>
+
+    <!-- PAGE: INSTELLINGEN -->
+    <div id="page-instellingen" style="display:none" class="content">
+      <div class="section">
+        <div class="section-header"><div class="section-title">Instellingen</div></div>
+        <div style="padding:20px;display:flex;flex-direction:column;gap:16px;max-width:400px">
+          <div>
+            <div class="field-label" style="margin-bottom:6px;font-size:11px;font-weight:600;color:var(--text-faint);text-transform:uppercase;letter-spacing:.04em">E-mail keyholder</div>
+            <input type="email" id="kh-email-input" value="info@vettschoon.com" class="field-val editable" placeholder="keyholder@email.com" oninput="saveSettings()">
+          </div>
+          <div>
+            <div class="field-label" style="margin-bottom:6px;font-size:11px;font-weight:600;color:var(--text-faint);text-transform:uppercase;letter-spacing:.04em">Naam afzender</div>
+            <input type="text" id="sender-name" value="Bram" class="field-val editable" placeholder="Jouw naam" oninput="saveSettings()">
+          </div>
+          <div>
+            <div class="field-label" style="margin-bottom:6px;font-size:11px;font-weight:600;color:var(--text-faint);text-transform:uppercase;letter-spacing:.04em">Minimum nachten welkomstcadeau</div>
+            <input type="number" id="gift-threshold" value="4" class="field-val editable" min="1" max="14" oninput="saveSettings()">
+          </div>
+          <div>
+            <div class="field-label" style="margin-bottom:6px;font-size:11px;font-weight:600;color:var(--text-faint);text-transform:uppercase;letter-spacing:.04em">Dagen voor aankomst voor communicatie</div>
+            <input type="number" id="days-before" value="27" class="field-val editable" min="1" max="60" oninput="saveSettings()">
+          </div>
+
+          <button class="btn btn-primary" onclick="clearHistory()">Geschiedenis wissen (reset eerste-upload)</button>
+        </div>
+      </div>
+    </div>
+    <!-- PAGE: GEBRUIKERS -->
+    <div id="page-gebruikers" style="display:none" class="content">
+      <div class="section" style="max-width:600px">
+        <div class="section-header"><div class="section-title">Beheerders</div></div>
+        <div style="padding:16px 18px">
+          <div id="users-list"></div>
+          <div id="invite-section" style="margin-top:20px;padding-top:16px;border-top:1px solid var(--border)">
+            <div style="font-size:12px;font-weight:600;color:var(--text);margin-bottom:8px">Beheerder uitnodigen</div>
+            <div style="font-size:11px;color:var(--text-muted);margin-bottom:10px">De nieuwe beheerder ontvangt een e-mail om een wachtwoord in te stellen en 2FA te activeren.</div>
+            <div style="display:flex;gap:8px;">
+              <input type="email" id="invite-email" placeholder="naam@email.com" class="field-val editable" style="flex:1;padding:7px 10px;font-size:12px;">
+              <button class="btn btn-primary" onclick="inviteUser()">Uitnodigen</button>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="section" style="max-width:600px;margin-top:16px">
+        <div class="section-header"><div class="section-title">2FA instellen</div></div>
+        <div style="padding:16px 18px">
+          <div style="font-size:12px;color:var(--text-muted);margin-bottom:12px">Scan de QR-code met Google Authenticator of Authy om twee-factor authenticatie te activeren voor jouw account.</div>
+          <div id="totp-setup-area"></div>
+          <button class="btn btn-primary" onclick="setupTotp()">2FA instellen / opnieuw instellen</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- PAGE: BESCHIKBAARHEID -->
+    <div id="page-beschikbaarheid" style="display:none" class="content">
+
+      <!-- Filters & prijzen -->
+      <div class="section" style="margin-bottom:16px">
+        <div class="section-header"><div class="section-title">Instellingen beschikbaarheidslijst</div></div>
+        <div style="padding:16px 18px;display:flex;flex-wrap:wrap;gap:16px;align-items:flex-end">
+          <div>
+            <div class="field-label" style="font-size:11px;font-weight:600;color:var(--text-faint);text-transform:uppercase;letter-spacing:.04em;margin-bottom:4px">Startdatum</div>
+            <input type="date" id="avail-start" class="field-val editable" style="padding:5px 8px;font-size:12px;border:1px solid var(--border-strong);border-radius:6px;font-family:var(--font)">
+          </div>
+          <div>
+            <div class="field-label" style="font-size:11px;font-weight:600;color:var(--text-faint);text-transform:uppercase;letter-spacing:.04em;margin-bottom:4px">Einddatum</div>
+            <input type="date" id="avail-end" class="field-val editable" style="padding:5px 8px;font-size:12px;border:1px solid var(--border-strong);border-radius:6px;font-family:var(--font)">
+          </div>
+          <div>
+            <div class="field-label" style="font-size:11px;font-weight:600;color:var(--text-faint);text-transform:uppercase;letter-spacing:.04em;margin-bottom:4px">Min. nachten</div>
+            <input type="number" id="avail-min" value="3" min="1" max="30" class="field-val editable" style="padding:5px 8px;font-size:12px;border:1px solid var(--border-strong);border-radius:6px;width:70px;font-family:var(--font)">
+          </div>
+          <div style="display:flex;align-items:center;gap:6px">
+            <div class="view-toggle">
+              <button class="view-btn active" id="lang-nl" onclick="setAvailLang('nl',this)">NL</button>
+              <button class="view-btn" id="lang-en" onclick="setAvailLang('en',this)">EN</button>
+            </div>
+          </div>
+          <button class="btn btn-primary" onclick="renderBeschikbaarheid()">Genereer lijst</button>
+        </div>
+
+        <!-- Nachtprijzen per maand -->
+        <div style="padding:0 18px 16px">
+          <div class="field-label" style="font-size:11px;font-weight:600;color:var(--text-faint);text-transform:uppercase;letter-spacing:.04em;margin-bottom:10px">Nachtprijs per maand (€)</div>
+          <div style="display:grid;grid-template-columns:repeat(6,1fr);gap:8px" id="month-prices-grid"></div>
+        </div>
+      </div>
+
+      <!-- Resultatenlijst -->
+      <div class="section" id="avail-results-section" style="display:none">
+        <div class="section-header">
+          <div class="section-title" id="avail-results-title">Beschikbare periodes</div>
+          <button class="btn" onclick="copyBeschikbaarheid()">Kopieer lijst</button>
+        </div>
+        <div id="avail-list" style="padding:4px 0"></div>
+      </div>
+
+      <div id="avail-empty" style="display:none" class="empty-state" style="padding:40px;text-align:center;color:var(--text-faint)">
+        Geen beschikbare periodes gevonden met ≥ <span id="avail-empty-min"></span> nachten in de geselecteerde periode.
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- DETAIL PANEL OVERLAY -->
+<div class="panel-overlay" id="panel-overlay" onclick="closePanel()"></div>
+<div class="detail-panel" id="detail-panel">
+  <div class="panel-header">
+    <div>
+      <div class="panel-guest" id="panel-guest"></div>
+      <div class="panel-dates" id="panel-dates"></div>
+    </div>
+    <button class="panel-close" onclick="closePanel()">×</button>
+  </div>
+  <div class="panel-body" id="panel-body"></div>
+  <div class="panel-actions" id="panel-actions"></div>
+</div>
+
+<script>
+// ─── SUPABASE CLIENT ────────────────────────────────────────────────────────
+const { createClient } = supabase;
+const sb = createClient('https://qbhcrueepyentwsxapqy.supabase.co', 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFiaGNydWVlcHllbnR3c3hhcHF5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzkwOTg0OTUsImV4cCI6MjA5NDY3NDQ5NX0.Xbbc9vhxQifGD2kh74HhCQBwRfHE73AzrunAHTpXvhU');
+let currentUser = null;
+let currentProfile = null;
+
+// ─── STATE ─────────────────────────────────────────────────────────────────
+let bookings = [];
+let sentLog = {};
+let settings = { keyholderEmail: 'info@vettschoon.com', senderName: 'Bram', giftThreshold: 4, daysBefore: 27 };
+let isFirstUpload = false;
+let prevBookingIds = [];
+let currentFilter = 'alle';
+let currentView = 'tabel';
+let calMonth = new Date().getMonth();
+let calYear = new Date().getFullYear();
+let editedPrices = {};
+let editedSources = {};
+let editedCountry = {};
+let editedLink = {};
+let editedAdults = {};
+let editedChildren = {};
+let editedWelcome = {};
+let editedEmail = {};
+let editedPhone = {};
+
+// ─── SUPABASE DATA LOADING ──────────────────────────────────────────────────
+async function loadStorage() {
+  try {
+    // Load settings
+    const { data: settingsData } = await sb.from('settings').select('key,value');
+    if (settingsData) {
+      settingsData.forEach(r => {
+        if (r.key === 'keyholderEmail') settings.keyholderEmail = r.value;
+        if (r.key === 'senderName') settings.senderName = r.value;
+        if (r.key === 'giftThreshold') settings.giftThreshold = parseInt(r.value)||4;
+        if (r.key === 'daysBefore') settings.daysBefore = parseInt(r.value)||27;
+      });
+    }
+    // Load sent log
+    const { data: sentData } = await sb.from('sent_log').select('*');
+    if (sentData) {
+      sentLog = {};
+      sentData.forEach(r => {
+        sentLog[r.booking_id] = {
+          gast: r.gast, gast_ts: r.gast_ts ? new Date(r.gast_ts).getTime() : null,
+          gast_queued: r.gast_queued,
+          keyholder: r.keyholder, keyholder_ts: r.keyholder_ts ? new Date(r.keyholder_ts).getTime() : null,
+          keyholder_queued: r.keyholder_queued,
+          annulering: r.annulering, annulering_ts: r.annulering_ts ? new Date(r.annulering_ts).getTime() : null,
+          annulering_needed: r.annulering_needed
+        };
+      });
+    }
+    // Load bookings_data (edited values)
+    const { data: bdData } = await sb.from('bookings_data').select('*');
+    if (bdData) {
+      bdData.forEach(r => {
+        if (r.price !== null) editedPrices[r.booking_id] = r.price;
+        if (r.source !== null) editedSources[r.booking_id] = r.source;
+        if (r.adults !== null) editedAdults[r.booking_id] = r.adults;
+        if (r.children !== null) editedChildren[r.booking_id] = r.children;
+        if (r.country !== null) editedCountry[r.booking_id] = r.country;
+        if (r.email !== null) editedEmail[r.booking_id] = r.email;
+        if (r.phone !== null) editedPhone[r.booking_id] = r.phone;
+        if (r.welcome_gift !== null) editedWelcome[r.booking_id] = r.welcome_gift;
+        if (r.admin_link !== null) editedLink[r.booking_id] = r.admin_link;
+      });
+    }
+    // Load month prices
+    const { data: mpData } = await sb.from('month_prices').select('month,price');
+    if (mpData) {
+      mpData.forEach(r => { monthPrices[r.month] = r.price || 0; });
+    }
+    // Load prev booking ids from settings
+    const { data: pidData } = await sb.from('settings').select('value').eq('key','prevBookingIds').single();
+    if (pidData?.value) prevBookingIds = JSON.parse(pidData.value);
+  } catch(e) { console.error('loadStorage error:', e); }
+}
+// ─── SUPABASE SAVE FUNCTIONS ────────────────────────────────────────────────
+async function saveLog() {
+  for (const [bid, log] of Object.entries(sentLog)) {
+    await sb.from('sent_log').upsert({
+      booking_id: bid,
+      gast: log.gast||false,
+      gast_ts: log.gast_ts ? new Date(log.gast_ts).toISOString() : null,
+      gast_queued: log.gast_queued||false,
+      keyholder: log.keyholder||false,
+      keyholder_ts: log.keyholder_ts ? new Date(log.keyholder_ts).toISOString() : null,
+      keyholder_queued: log.keyholder_queued||false,
+      annulering: log.annulering||false,
+      annulering_ts: log.annulering_ts ? new Date(log.annulering_ts).toISOString() : null,
+      annulering_needed: log.annulering_needed||false,
+      updated_by: currentUser?.id
+    }, { onConflict: 'booking_id' });
+  }
+}
+async function savePrevIds() {
+  await sb.from('settings').upsert({ key: 'prevBookingIds', value: JSON.stringify(prevBookingIds), updated_by: currentUser?.id }, { onConflict: 'key' });
+}
+async function saveSettings() {
+  settings.keyholderEmail = document.getElementById('kh-email-input').value;
+  settings.senderName = document.getElementById('sender-name').value;
+  settings.giftThreshold = parseInt(document.getElementById('gift-threshold').value)||4;
+  settings.daysBefore = parseInt(document.getElementById('days-before').value)||27;
+  const rows = [
+    { key: 'keyholderEmail', value: settings.keyholderEmail },
+    { key: 'senderName', value: settings.senderName },
+    { key: 'giftThreshold', value: String(settings.giftThreshold) },
+    { key: 'daysBefore', value: String(settings.daysBefore) },
+  ];
+  for (const r of rows) await sb.from('settings').upsert({ ...r, updated_by: currentUser?.id }, { onConflict: 'key' });
+  document.getElementById('kh-email-display').textContent = settings.keyholderEmail;
+}
+async function saveBookingField(id, field, value) {
+  const colMap = { price:'price', source:'source', adults:'adults', children:'children',
+    country:'country', email:'email', phone:'phone', welcome:'welcome_gift', link:'admin_link' };
+  const col = colMap[field];
+  if (!col) return;
+  await sb.from('bookings_data').upsert(
+    { booking_id: id, [col]: value, updated_by: currentUser?.id, updated_at: new Date().toISOString() },
+    { onConflict: 'booking_id' }
+  );
+}
+function savePrices() { /* handled by saveBookingField */ }
+function saveSources() { /* handled by saveBookingField */ }
+function savePersons() { /* handled by saveBookingField */ }
+function saveCountry() { /* handled by saveBookingField */ }
+function saveLink() { /* handled by saveBookingField */ }
+function saveAdults() { /* handled by saveBookingField */ }
+function saveChildren() { /* handled by saveBookingField */ }
+function saveWelcome() { /* handled by saveBookingField */ }
+function saveEmail() { /* handled by saveBookingField */ }
+function savePhone() { /* handled by saveBookingField */ }
+async function saveMonthPrices() {
+  for (const [m, price] of Object.entries(monthPrices)) {
+    await sb.from('month_prices').upsert({ month: parseInt(m), price, updated_by: currentUser?.id }, { onConflict: 'month' });
+  }
+}
+async function clearHistory() {
+  prevBookingIds=[];
+  sentLog={};
+  await savePrevIds();
+  await saveLog();
+  alert('Geschiedenis gewist. Volgende upload wordt behandeld als eerste upload.');
+}
+
+// ─── PARSE CSV ──────────────────────────────────────────────────────────────
+function parseCSV(text) {
+  const lines = text.trim().split('\n');
+  const headers = lines[0].split(',').map(h => h.replace(/"/g,'').trim());
+  return lines.slice(1).map(line => {
+    const vals = [];
+    let cur = '', inQ = false;
+    for (let c of line) {
+      if (c==='"') inQ=!inQ;
+      else if (c===',' && !inQ) { vals.push(cur.trim()); cur=''; }
+      else cur += c;
+    }
+    vals.push(cur.trim());
+    const obj = {};
+    headers.forEach((h,i) => obj[h] = vals[i]||'');
+    return obj;
+  });
+}
+function parsePrice(s) { if(!s) return 0; return parseFloat(s.replace(/"/g,'').replace(/\./g,'').replace(',','.'))||0; }
+function parseDate(s) {
+  if(!s) return null;
+  s = s.replace(/"/g,'').trim();
+  // ISO format: 2026-04-07
+  if(/^\d{4}-\d{2}-\d{2}$/.test(s)) { const [y,m,d]=s.split('-').map(Number); return new Date(y,m-1,d); }
+  // Excel serial number
+  if(/^\d+$/.test(s)) { const n=Number(s); if(n>40000){ const d=new Date((n-25569)*86400000); return new Date(d.getFullYear(),d.getMonth(),d.getDate()); } }
+  // DD-MM-YYYY or D/M/YYYY
+  const dm = s.match(/^(\d{1,2})[-\/](\d{1,2})[-\/](\d{4})$/);
+  if(dm) return new Date(Number(dm[3]),Number(dm[2])-1,Number(dm[1]));
+  return null;
+}
+function fmtDate(d) { if(!d) return '—'; return d.toLocaleDateString('nl-NL',{day:'numeric',month:'short',year:'numeric'}); }
+function fmtDateShort(d) { if(!d) return '—'; return d.toLocaleDateString('nl-NL',{day:'numeric',month:'short'}); }
+function nightsBetween(a,b) { if(!a||!b) return 0; return Math.round((b-a)/86400000); }
+function langToCountry(lang) {
+  const map = {NL:"Nederland",GB:"Verenigd Koninkrijk",DE:"Duitsland",FR:"Frankrijk",ES:"Spanje",IT:"Italië",BE:"België",NO:"Noorwegen",SE:"Zweden",DK:"Denemarken",PL:"Polen",PT:"Portugal",IE:"Ierland",AT:"Oostenrijk",SK:"Slowakije",SI:"Slovenië",US:"Verenigde Staten"};
+  return map[(lang||"").toUpperCase()]||"";
+}
+function detectSource(name, importFlag) {
+  if (!name) return importFlag==='1' ? 'extern' : 'website';
+  const n = name.toLowerCase();
+  if (n.includes('airbnb')) return 'airbnb';
+  if (n.includes('booking.com') || n.includes('booking -') || n.includes('booking.com -')) return 'booking';
+  if (n.includes('vrbo')) return 'vrbo';
+  if (n.includes('closed') || n.includes('not available')) return 'eigen';
+  // booking_import=1 means external platform, empty means own website
+  if (importFlag==='1') return 'extern';
+  return 'website';
+}
+function guestName(b) {
+  let name = b.book_name || b.customer_name || '';
+  name = name.replace(/^airbnb\s*-\s*/i,'').replace(/^booking\.com\s*-\s*/i,'').replace(/^booking\s*-\s*/i,'').replace(/^vrbo\s*-\s*/i,'').replace(/^reserved\s*-?\s*/i,'');
+  if (!name || name.toLowerCase().includes('closed') || name.toLowerCase() === 'reserved') return '—';
+  return name;
+}
+function statusClass(s) {
+  if (!s) return 'st-eigen';
+  const sl = s.toLowerCase();
+  if (sl.includes('geannuleerd')) return 'st-geannuleerd';
+  if (sl.includes('eigen')) return 'st-eigen';
+  if (sl.includes('voorlopig') || sl.includes('optie')) return 'st-optie';
+  if (sl.includes('bevestigd')) return 'st-bevestigd';
+  return 'st-bevestigd';
+}
+function sourceClass(src) {
+  const map = {airbnb:'src-airbnb',booking:'src-booking',website:'src-website',familie:'src-familie',eigen:'src-eigen',vrbo:'src-vrbo',extern:'src-booking'};
+  return map[src]||'src-onbekend';
+}
+function sourceLabel(src) {
+  const map = {airbnb:'Airbnb',booking:'Booking.com',website:'Eigen website',familie:'Familie',eigen:'Eigen gebruik',vrbo:'VRBO',extern:'Extern platform',onbekend:'Onbekend'};
+  return map[src]||src;
+}
+
+function processBookings(rows) {
+  return rows.map(r => {
+    const id = r.booking_id;
+    const importFlag = (r.booking_import||'').trim();
+    const src = editedSources[id] || detectSource(r.book_name, importFlag);
+    const start = parseDate(r.booking_start);
+    const end = parseDate(r.booking_end);
+    const created = parseDate(r.booking_create);
+    const nights = nightsBetween(start, end);
+    const price = editedPrices[id] !== undefined ? editedPrices[id] : parsePrice(r.price_rent);
+    const service = parsePrice(r.price_services);
+    const total = parsePrice(r.price_booking);
+    const paid = parsePrice(r.payment_recieved);
+    const csvAdults = parseInt(r.customer_adult)||0;
+    const csvChildren = parseInt(r.customer_child)||0;
+    const adults = editedAdults[id] !== undefined ? editedAdults[id] : (csvAdults > 0 ? csvAdults : '');
+    const children = editedChildren[id] !== undefined ? editedChildren[id] : (csvChildren > 0 ? csvChildren : 0);
+    const persons = adults !== '' ? String(Number(adults) + Number(children||0)) : '';
+    const csvCountry = (r.adres_country||"").trim();
+    const country = editedCountry[id] !== undefined ? editedCountry[id] : (csvCountry || '');
+    const email = editedEmail[id] !== undefined ? editedEmail[id] : (r.customer_email||"");
+    const phone = editedPhone[id] !== undefined ? editedPhone[id] : (r.customer_phone||"");
+    const langCode = (r.customer_lang||"").toLowerCase().trim();
+    const notes = r.booking_notes||"";
+    const checkinHour = r.booking_start_hour||"16:00";
+    const checkoutHour = r.booking_end_hour||"10:00";
+    const lateCheckin = (r["serviceid30391_late-check-in-na-2000-uur"]||"").toLowerCase()==="ja";
+    const statusLow = (r.booking_status||"").toLowerCase();
+    const nameLow = (r.book_name||"").toLowerCase();
+    const isCancelled = statusLow.includes("geannuleerd");
+    const isEigen = statusLow.includes("eigen") || (!isCancelled && (nameLow.includes("closed") || nameLow.startsWith("reserved") || (nameLow==="" && !statusLow.includes("bevestigd") && !statusLow.includes("voorlopig"))));
+    const welcomeGift = editedWelcome[id] !== undefined ? editedWelcome[id] : (nights >= settings.giftThreshold && !isEigen);
+    const name = isEigen ? "Eigen gebruik" : guestName(r);
+    return { id, src, start, end, created, nights, price, service, total, paid, adults, children, persons, country, email, phone, langCode, notes, checkinHour, checkoutHour, lateCheckin, name, status: r.booking_status, isEigen, isCancelled, welcomeGift, raw: r };
+  }).filter(b => b.start);
+}
+
+function handleCSV(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    const rows = parseCSV(e.target.result);
+    const newBookings = processBookings(rows);
+    const newIds = newBookings.map(b=>b.id);
+    isFirstUpload = prevBookingIds.length === 0;
+    if (!isFirstUpload) detectChanges(bookings, newBookings);
+    bookings = newBookings;
+    prevBookingIds = newIds;
+    savePrevIds();
+    if (isFirstUpload) document.getElementById('first-run-banner').style.display='flex';
+    else document.getElementById('first-run-banner').style.display='none';
+    render();
+    event.target.value = '';
+  };
+  reader.readAsText(file);
+}
+
+function detectChanges(old, newB) {
+  const today = new Date();
+  const threshold = settings.daysBefore;
+  newB.forEach(b => {
+    if (b.isCancelled) {
+      const wasActive = old.find(o=>o.id===b.id && !o.isCancelled);
+      if (wasActive) {
+        const log = sentLog[b.id]||{};
+        if (log.keyholder && !log.annulering) {
+          sentLog[b.id] = {...log, annulering_needed: true};
+          saveLog();
+        }
+      }
+    }
+    if (!b.isCancelled && !b.isEigen) {
+      const daysUntil = b.start ? Math.round((b.start - today)/86400000) : 999;
+      if (daysUntil <= threshold && daysUntil >= 0) {
+        const log = sentLog[b.id]||{};
+        if (!log.gast_queued) {
+          sentLog[b.id] = {...log, gast_queued: true, keyholder_queued: true};
+          saveLog();
+        }
+      }
+    }
+  });
+}
+
+// ─── WERKVOORRAAD ────────────────────────────────────────────────────────────
+function buildWerkvoorraad() {
+  const today = new Date();
+  const items = [];
+  if (!isFirstUpload) {
+    bookings.forEach(b => {
+      const log = sentLog[b.id]||{};
+      const daysUntil = b.start ? Math.round((b.start-today)/86400000) : 999;
+      if (!b.isCancelled && !b.isEigen && daysUntil<=settings.daysBefore && daysUntil>=0) {
+        if (!log.gast) items.push({type:'gast', booking:b});
+        if (!log.keyholder) items.push({type:'keyholder', booking:b});
+      }
+      if (b.isCancelled && log.keyholder && !log.annulering) {
+        items.push({type:'annulering', booking:b});
+      }
+      if (log.annulering_needed && !log.annulering) {
+        items.push({type:'annulering', booking:b});
+      }
+    });
+  }
+  return items;
+}
+
+function renderWerkvoorraad(container) {
+  const items = buildWerkvoorraad();
+  if (items.length === 0) {
+    container.innerHTML = '<div class="empty-state">✓ Geen openstaande acties</div>';
+    return;
+  }
+  container.innerHTML = items.map((item,i) => {
+    const b = item.booking;
+    const log = sentLog[b.id]||{};
+    const color = item.type==='gast'?'var(--green)':item.type==='keyholder'?'var(--blue)':'var(--red)';
+    const tagClass = item.type==='gast'?'tag-gast':item.type==='keyholder'?'tag-key':'tag-cancel';
+    const tagLabel = item.type==='gast'?'Concept gast':item.type==='keyholder'?'Concept keyholder':'Annulering keyholder';
+    const sentKey = item.type==='gast'?'gast':item.type==='keyholder'?'keyholder':'annulering';
+    const isSent = log[sentKey];
+    const meta = item.type==='gast'
+      ? `${sourceLabel(b.src)} · ${b.country||'land onbekend'} · ${b.nights} nachten · ${b.persons||'?'} pers. — gastmail (27-dagenherinnering)`
+      : item.type==='keyholder'
+      ? `${settings.keyholderEmail} · aankomst ${fmtDateShort(b.start)} · welkomstcadeau: ${b.welcomeGift?'ja':'nee'}`
+      : `Aankomst was ${fmtDateShort(b.start)} · keyholder eerder geïnformeerd — annuleringsmail vereist`;
+    return `<div class="wl-item">
+      <div class="wl-stripe" style="background:${color}"></div>
+      <div class="wl-body">
+        <div class="wl-title">${b.name} — ${item.type==='annulering'?'annulering':('aankomst '+fmtDateShort(b.start))}</div>
+        <div class="wl-meta">${meta}</div>
+        <div class="wl-actions">
+          <span class="tag ${tagClass}">${tagLabel}</span>
+          ${isSent
+            ? `<span class="btn-sm sent">Verzonden</span>`
+            : `<button class="btn-sm primary" onclick="openDraft('${b.id}','${item.type}')">Toon concept</button>
+               <button class="btn-sm" onclick="markSent('${b.id}','${sentKey}')">Markeer als verzonden</button>`
+          }
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+async function markSent(id, key) {
+  sentLog[id] = {...(sentLog[id]||{}), [key]: true, [key+'_ts']: Date.now()};
+  await saveLog();
+  render();
+}
+
+// ─── DRAFT PANEL ─────────────────────────────────────────────────────────────
+function openDraft(id, type) {
+  const b = bookings.find(x=>x.id===id);
+  if (!b) return;
+  const panel = document.getElementById('detail-panel');
+  const overlay = document.getElementById('panel-overlay');
+  document.getElementById('panel-guest').textContent = b.name + (type==='annulering'?' — Annulering':'');
+  document.getElementById('panel-dates').textContent = type==='keyholder'?`Keyholder: ${settings.keyholderEmail}`:type==='annulering'?`Annulering → ${settings.keyholderEmail}`:`Aankomst: ${fmtDateShort(b.start)}`;
+  const lang = getGuestLang(b.country, b.langCode);
+  const sender = settings.senderName;
+  const link = editedLink[id]||'';
+  let body = '';
+  if (type==='gast') {
+    body = buildGuestDraft(b, lang, sender, link);
+  } else if (type==='keyholder') {
+    body = buildKeyholderDraft(b, sender);
+  } else {
+    body = buildCancellationDraft(b, sender);
+  }
+  const linkField = type==='gast' ? `
+    <div style="margin-bottom:12px">
+      <div class="draft-subject">Link guest admin tool (optioneel)</div>
+      <input type="text" class="link-input" id="draft-link-input" value="${link}" placeholder="https://..." oninput="updateDraftLink('${id}')">
+    </div>
+  ` : '';
+  document.getElementById('panel-body').innerHTML = `
+    <div class="panel-section">
+      ${linkField}
+      <div class="draft-subject">Onderwerp</div>
+      <div class="draft-box" style="margin-bottom:12px;padding:8px 12px;">${getDraftSubject(b,type,lang)}</div>
+      <div class="draft-subject">Berichttekst</div>
+      <div class="draft-box" id="draft-content">${body}</div>
+    </div>
+  `;
+  document.getElementById('panel-actions').innerHTML = `
+    <button class="btn btn-primary" onclick="copyDraft()">Kopieer bericht</button>
+    <button class="btn" onclick="markSent('${id}','${type==='gast'?'gast':type==='keyholder'?'keyholder':'annulering'}');closePanel()">Markeer als verzonden</button>
+    <button class="btn" onclick="closePanel()">Sluiten</button>
+  `;
+  panel.classList.add('open');
+  overlay.classList.add('open');
+}
+
+function updateDraftLink(id) {
+  const val = document.getElementById('draft-link-input')?.value||'';
+  editedLink[id] = val;
+  saveBookingField(id,'link',val);
+  const b = bookings.find(x=>x.id===id);
+  if (b) {
+    const lang = getGuestLang(b.country, b.langCode);
+    document.getElementById('draft-content').textContent = buildGuestDraft(b, lang, settings.senderName, val);
+  }
+}
+
+function getDraftSubject(b, type, lang) {
+  if (type==='gast') return getSubject(lang, b);
+  if (type==='keyholder') return `Aankomst gasten Casa Pura Vida 14 — ${fmtDateShort(b.start)}`;
+  return `Annulering reservering — Casa Pura Vida 14 — ${fmtDateShort(b.start)}`;
+}
+
+function getGuestLang(country, langCode) {
+  const langMap = {nl:"nl",be:"nl",gb:"en",de:"de",fr:"fr",es:"es",se:"sv",no:"no",dk:"da",it:"it",pl:"pl",sk:"sk",si:"sl",ie:"en",at:"de",us:"en",pt:"pt"};
+  if (langCode && langMap[langCode.toLowerCase()]) return langMap[langCode.toLowerCase()];
+  if (!country) return 'nl';
+  const c = country.toLowerCase();
+  if (c.includes('nl') || c.includes('nederland')) return 'nl';
+  if (c.includes('belgi')) return 'nl';
+  if (c.includes('duits') || c.includes('german')) return 'de';
+  if (c.includes('frank') || c.includes('franc')) return 'fr';
+  if (c.includes('spanje') || c.includes('spain') || c.includes('spani')) return 'es';
+  if (c.includes('zwed') || c.includes('swed')) return 'sv';
+  if (c.includes('noorweg') || c.includes('norw')) return 'no';
+  if (c.includes('denemar') || c.includes('danish') || c.includes('denm')) return 'da';
+  if (c.includes('engeland') || c.includes('england') || c.includes('uk') || c.includes('groot-brittanni') || c.includes('ireland')) return 'en';
+  if (c.includes('itali')) return 'it';
+  if (c.includes('polski') || c.includes('poland') || c.includes('pool')) return 'pl';
+  if (c.includes('slowak')) return 'sk';
+  if (c.includes('oostenr') || c.includes('austria')) return 'de';
+  if (c.includes('sloven')) return 'sl';
+  if (c.includes('usa') || c.includes('ameri')) return 'en';
+  return 'en';
+}
+
+function getSubject(lang, b) {
+  const map = {
+    nl: `Welkom bij Casa Pura Vida 14 — informatie voor uw aankomst`,
+    en: `Welcome to Casa Pura Vida 14 — information for your arrival`,
+    de: `Willkommen in Casa Pura Vida 14 — Informationen zu Ihrer Ankunft`,
+    fr: `Bienvenue à Casa Pura Vida 14 — informations pour votre arrivée`,
+    es: `Bienvenido a Casa Pura Vida 14 — información para su llegada`,
+    sv: `Välkommen till Casa Pura Vida 14 — information inför er ankomst`,
+    no: `Velkommen til Casa Pura Vida 14 — informasjon til ankomsten`,
+    da: `Velkommen til Casa Pura Vida 14 — information til jeres ankomst`,
+    it: `Benvenuti a Casa Pura Vida 14 — informazioni per il vostro arrivo`,
+    pl: `Witamy w Casa Pura Vida 14 — informacje przed przyjazdem`,
+    sk: `Vitajte v Casa Pura Vida 14 — informácie pred príchodom`,
+    sl: `Dobrodošli v Casa Pura Vida 14 — informacije pred prihodom`,
+  };
+  return map[lang]||map['en'];
+}
+
+function buildGuestDraft(b, lang, sender, link) {
+  function getLinkBlock(lang) {
+    const regText = {
+      nl: 'De Spaanse overheid verplicht ons alle gasten te registreren. Dit dient een week voor aankomst te gebeuren. Om dit voor jullie en voor ons te vergemakkelijken maken we hiervoor gebruik van een tool: Guest-admin. Registreren kan via onderstaande link, maar jullie ontvangen ook van Guest Admin een mail hierover.',
+      en: 'The Spanish government requires us to register all guests. This must be done one week before arrival. To make this easier for you and for us, we use a tool called Guest-admin. You can register via the link below, and you will also receive an email from Guest Admin about this.',
+      de: 'Die spanische Regierung verpflichtet uns, alle Gäste zu registrieren. Dies muss eine Woche vor der Ankunft erfolgen. Um dies für Sie und für uns zu vereinfachen, verwenden wir ein Tool namens Guest-admin. Sie können sich über den folgenden Link registrieren und erhalten außerdem eine E-Mail von Guest Admin.',
+      fr: 'Le gouvernement espagnol nous oblige à enregistrer tous les voyageurs. Cela doit être fait une semaine avant l\'arrivée. Pour faciliter cette démarche, nous utilisons un outil appelé Guest-admin. Vous pouvez vous inscrire via le lien ci-dessous et recevrez également un e-mail de Guest Admin.',
+      es: 'El gobierno español nos obliga a registrar a todos los huéspedes. Esto debe realizarse una semana antes de la llegada. Para facilitarlo, utilizamos una herramienta llamada Guest-admin. Podéis registraros a través del siguiente enlace, y también recibiréis un correo electrónico de Guest Admin al respecto.',
+      sv: 'Den spanska regeringen kräver att vi registrerar alla gäster. Detta måste göras en vecka före ankomst. För att förenkla detta använder vi ett verktyg som heter Guest-admin. Ni kan registrera er via länken nedan och kommer även att få ett e-postmeddelande från Guest Admin.',
+      no: 'Den spanske regjeringen krever at vi registrerer alle gjester. Dette må gjøres én uke før ankomst. For å gjøre dette enklere bruker vi et verktøy som heter Guest-admin. Dere kan registrere dere via lenken nedenfor, og vil også motta en e-post fra Guest Admin.',
+      da: 'Den spanske regering kræver, at vi registrerer alle gæster. Dette skal gøres en uge før ankomst. For at gøre det nemmere bruger vi et værktøj kaldet Guest-admin. I kan registrere jer via linket nedenfor og vil også modtage en e-mail fra Guest Admin.',
+      it: 'Il governo spagnolo ci obbliga a registrare tutti gli ospiti. Questa operazione deve essere effettuata una settimana prima dell\'arrivo. Per semplificarlo, utilizziamo uno strumento chiamato Guest-admin. Potete registrarvi tramite il link sottostante e riceverete anche una e-mail da Guest Admin.',
+      pl: 'Rząd hiszpański zobowiązuje nas do rejestracji wszystkich gości. Należy to zrobić tydzień przed przyjazdem. Aby to ułatwić, korzystamy z narzędzia Guest-admin. Rejestracji można dokonać via poniższy link, a Państwo otrzymają również e-mail od Guest Admin.',
+      sk: 'Španielska vláda nás zaväzuje registrovať všetkých hostí. Toto musí byť vykonané týždeň pred príchodom. Na uľahčenie tohto procesu používame nástroj Guest-admin. Môžete sa zaregistrovať cez odkaz nižšie a dostanete tiež e-mail od Guest Admin.',
+      sl: 'Španska vlada zahteva, da registriramo vse goste. To je treba storiti teden pred prihodom. Da bi to olajšali, uporabljamo orodje Guest-admin. Registrirate se lahko prek spodnje povezave in prejeli boste tudi e-pošto od Guest Admin.',
+    };
+    const txt = regText[lang] || regText['en'];
+    const linkLine = link ? link : '[Voeg hier de link van het guest admin tool in]';
+    return '\n\n' + txt + '\n' + linkLine + '\n\n';
+  }
+  const guestSite = 'https://guests.casapuravida14.com';
+  const greet = (b.name&&b.name!=='—') ? b.name.split(' ')[0] : '';
+  const drafts = {
+    nl: `Beste${greet?' '+greet:''},\n\nWij verheugen ons erop u te mogen verwelkomen bij Casa Pura Vida 14 op ${fmtDate(b.start)}!\n\nOp onze gastenpagina vindt u alle informatie over uw verblijf:\n${guestSite}${getLinkBlock('nl')}Heeft u een specifiek aankomsttijdstip, een wens of een vraag? Neem gerust contact op.\n\nHartelijke groeten,\n${sender}\nCasa Pura Vida 14`,
+    en: `Dear${greet?' '+greet:''},\n\nWe are looking forward to welcoming you to Casa Pura Vida 14 on ${fmtDate(b.start)}!\n\nYou can find all information about your stay on our guest page:\n${guestSite}${getLinkBlock('en')}If you have a specific arrival time, a request or a question, please don't hesitate to get in touch.\n\nKind regards,\n${sender}\nCasa Pura Vida 14`,
+    de: `Liebe${greet?' '+greet:''},\n\nWir freuen uns, Sie am ${fmtDate(b.start)} bei Casa Pura Vida 14 begrüßen zu dürfen!\n\nAlle Informationen zu Ihrem Aufenthalt finden Sie auf unserer Gastseite:\n${guestSite}${getLinkBlock('de')}Bei Fragen oder besonderen Wünschen stehen wir Ihnen gerne zur Verfügung.\n\nHerzliche Grüße,\n${sender}\nCasa Pura Vida 14`,
+    fr: `Cher${greet?' '+greet:''},\n\nNous sommes ravis de vous accueillir à Casa Pura Vida 14 le ${fmtDate(b.start)} !\n\nRetrouvez toutes les informations sur votre séjour sur notre page dédiée aux voyageurs :\n${guestSite}${getLinkBlock('fr')}N'hésitez pas à nous contacter si vous avez des questions ou des souhaits particuliers.\n\nCordialement,\n${sender}\nCasa Pura Vida 14`,
+    es: `Estimado/a${greet?' '+greet:''},\n\n¡Nos complace darle la bienvenida a Casa Pura Vida 14 el ${fmtDate(b.start)}!\n\nEncuentre toda la información sobre su estancia en nuestra página para huéspedes:\n${guestSite}${getLinkBlock('es')}Si tiene alguna pregunta o deseo especial, no dude en ponerse en contacto con nosotros.\n\nUn cordial saludo,\n${sender}\nCasa Pura Vida 14`,
+    sv: `Hej${greet?' '+greet:''},\n\nVi ser fram emot att välkomna er till Casa Pura Vida 14 den ${fmtDate(b.start)}!\n\nAll information om er vistelse hittar ni på vår gästsida:\n${guestSite}${getLinkBlock('sv')}Har ni önskemål om ankomsttid eller andra frågor? Hör gärna av er!\n\nHjärtliga hälsningar,\n${sender}\nCasa Pura Vida 14`,
+    no: `Hei${greet?' '+greet:''},\n\nVi gleder oss til å ønske dere velkommen til Casa Pura Vida 14 den ${fmtDate(b.start)}!\n\nAll informasjon om oppholdet finner dere på vår gjesteside:\n${guestSite}${getLinkBlock('no')}Har dere spørsmål eller ønsker? Ta gjerne kontakt!\n\nMed vennlig hilsen,\n${sender}\nCasa Pura Vida 14`,
+    da: `Kære${greet?' '+greet:''},\n\nVi ser frem til at byde jer velkommen til Casa Pura Vida 14 den ${fmtDate(b.start)}!\n\nAl information om jeres ophold finder I på vores gæsteside:\n${guestSite}${getLinkBlock('da')}Hvis I har spørgsmål eller ønsker, er I meget velkomne til at kontakte os.\n\nVenlig hilsen,\n${sender}\nCasa Pura Vida 14`,
+    it: `Gentile${greet?' '+greet:''},\n\nSiamo lieti di darvi il benvenuto a Casa Pura Vida 14 il ${fmtDate(b.start)}!\n\nTutte le informazioni sul vostro soggiorno le trovate sulla nostra pagina per gli ospiti:\n${guestSite}${getLinkBlock('it')}Per qualsiasi domanda o richiesta, non esitate a contattarci.\n\nCordiali saluti,\n${sender}\nCasa Pura Vida 14`,
+    pl: `Drogi/a${greet?' '+greet:''},\n\nZ przyjemnością przywitamy Państwa w Casa Pura Vida 14 w dniu ${fmtDate(b.start)}!\n\nWszelkie informacje o pobycie znajdą Państwo na naszej stronie dla gości:\n${guestSite}${getLinkBlock('pl')}W razie pytań lub życzeń prosimy o kontakt.\n\nZ poważaniem,\n${sender}\nCasa Pura Vida 14`,
+    sk: `Vážený/á${greet?' '+greet:''},\n\nTešíme sa na privítanie vo Casa Pura Vida 14 dňa ${fmtDate(b.start)}!\n\nVšetky informácie o vašom pobyte nájdete na našej stránke pre hostí:\n${guestSite}${getLinkBlock('sk')}Ak máte otázky alebo priania, neváhajte nás kontaktovať.\n\nSrdečné pozdravy,\n${sender}\nCasa Pura Vida 14`,
+    sl: `Spoštovani${greet?' '+greet:''},\n\nVeselimo se, da vas pozdravimo v Casa Pura Vida 14 dne ${fmtDate(b.start)}!\n\nVse informacije o vašem bivanju najdete na naši strani za goste:\n${guestSite}${getLinkBlock('sl')}Če imate kakšna vprašanja ali posebne želje, nas prosim kontaktirajte.\n\nLep pozdrav,\n${sender}\nCasa Pura Vida 14`,
+  };
+  return drafts[lang]||drafts['en'];
+}
+
+function buildKeyholderDraft(b, sender) {
+  const src = sourceLabel(b.src);
+  const gift = b.welcomeGift ? 'Ja' : 'Nee';
+  const persons = b.persons || 'onbekend';
+  const country = b.country || 'onbekend';
+  const checkin = fmtDate(b.start);
+  const checkout = fmtDate(b.end);
+  const created = b.created ? fmtDate(b.created) : '—';
+  const contactLine = b.email ? `\nContactgegevens gast:\nE-mail: ${b.email}${b.phone ? '\nTelefoon: '+b.phone : ''}` : (b.phone ? `\nTelefoon gast: ${b.phone}` : '');
+  const lateLine = b.lateCheckin ? '\n⚠ LET OP: Late check-in na 20:00 uur!' : '';
+  return `Beste,\n\nHierbij informeer ik je over de aankomende boeking bij Casa Pura Vida 14:\n\nNaam gast: ${b.name}\nAantal personen: ${persons}\nBoekingsherkomst: ${src}\nLand van herkomst: ${country}\nAankomstdatum: ${checkin} om ${b.checkinHour||'16:00'}\nVertrekdatum: ${checkout} om ${b.checkoutHour||'10:00'}\nDatum boeking: ${created}\nIncheck nodig: Ja\nUitcheck nodig: Ja\nWelkomstcadeau: ${gift} (${b.nights} nachten)${contactLine}${lateLine}\n\nMochten er vragen zijn, dan hoor ik het graag.\n\nGroeten,\n${sender}`;
+}
+
+function buildCancellationDraft(b, sender) {
+  return `Beste,\n\nIk wil je laten weten dat de reservering van ${b.name}, die gepland stond van ${fmtDate(b.start)} tot ${fmtDate(b.end)}, helaas is geannuleerd.\n\nJe hoeft voor deze periode geen actie te ondernemen.\n\nMocht je nog vragen hebben, dan hoor ik het graag.\n\nGroeten,\n${sender}`;
+}
+
+function copyDraft() {
+  const text = document.getElementById('draft-content')?.textContent||'';
+  navigator.clipboard.writeText(text).then(()=>alert('Gekopieerd naar klembord!'));
+}
+
+// ─── DETAIL PANEL (boeking) ──────────────────────────────────────────────────
+function openBookingDetail(id) {
+  const b = bookings.find(x=>x.id===id);
+  if (!b) return;
+  const panel = document.getElementById('detail-panel');
+  const overlay = document.getElementById('panel-overlay');
+  document.getElementById('panel-guest').textContent = b.name;
+  document.getElementById('panel-dates').textContent = `${fmtDate(b.start)} → ${fmtDate(b.end)} · ${b.nights} nachten`;
+
+  const schoonmaakLinnengoed = b.service;
+  const commission = b.src==='booking' ? b.price*0.15 : b.src==='airbnb' ? b.price*0.03 : 0;
+  const nettoNaCommissie = b.price - schoonmaakLinnengoed - commission;
+
+  document.getElementById('panel-body').innerHTML = `
+    <div class="panel-section">
+      <div class="panel-section-title">Boekingsinformatie</div>
+      <div class="field-grid">
+        <div class="field"><div class="field-label">Boekingsnr.</div><div class="field-val" style="font-family:var(--mono);font-size:12px">${b.id}</div></div>
+        <div class="field"><div class="field-label">Status</div><div class="field-val"><span class="status-badge ${statusClass(b.status)}">${b.status||'—'}</span></div></div>
+        <div class="field"><div class="field-label">Boekingsdatum</div><div class="field-val">${fmtDate(b.created)}</div></div>
+        <div class="field"><div class="field-label">Nachten</div><div class="field-val">${b.nights}</div></div>
+        <div class="field">
+          <div class="field-label">Volwassenen</div>
+          <input type="number" class="field-val editable" value="${b.adults||''}" placeholder="0" min="0" max="20" oninput="updateAdults('${id}',this.value)">
+        </div>
+        <div class="field">
+          <div class="field-label">Kinderen</div>
+          <input type="number" class="field-val editable" value="${b.children||0}" placeholder="0" min="0" max="10" oninput="updateChildren('${id}',this.value)">
+        </div>
+        <div class="field" style="grid-column:span 2">
+          <div class="field-label">Land van herkomst</div>
+          <div style="position:relative">
+            <input type="text" class="field-val editable" id="country-input-${id}" value="${b.country||''}" placeholder="Zoek land..." autocomplete="off"
+              oninput="filterCountries('${id}',this.value)" onfocus="showCountryList('${id}')" onblur="setTimeout(()=>hideCountryList('${id}'),200)">
+            <div id="country-list-${id}" style="display:none;position:absolute;top:100%;left:0;right:0;background:var(--bg-card);border:1px solid var(--border-strong);border-radius:8px;max-height:160px;overflow-y:auto;z-index:50;box-shadow:var(--shadow-md)"></div>
+          </div>
+        </div>
+        <div class="field">
+          <div class="field-label">Boekingsbron</div>
+          <select class="source-select" onchange="updateSource('${id}',this.value)">
+            ${['airbnb','booking','website','familie','eigen','vrbo','extern'].map(s=>`<option value="${s}" ${b.src===s?'selected':''}>${sourceLabel(s)}</option>`).join('')}
+          </select>
+        </div>
+        <div class="field">
+          <div class="field-label">Welkomstcadeau</div>
+          <select class="source-select" onchange="updateWelcome('${id}',this.value==='ja')">
+            <option value="ja" ${b.welcomeGift?'selected':''}>✓ Ja</option>
+            <option value="nee" ${!b.welcomeGift?'selected':''}>✗ Nee</option>
+          </select>
+        </div>
+      </div>
+    </div>
+    <hr class="divider">
+    <div class="panel-section">
+      <div class="panel-section-title">Contactgegevens</div>
+      <div class="field-grid">
+        <div class="field" style="grid-column:span 2">
+          <div class="field-label">E-mail</div>
+          <input type="email" class="field-val editable" value="${b.email||''}" placeholder="email@voorbeeld.com" style="width:100%" oninput="updateEmail('${id}',this.value)">
+        </div>
+        <div class="field" style="grid-column:span 2">
+          <div class="field-label">Telefoon</div>
+          <input type="tel" class="field-val editable" value="${b.phone||''}" placeholder="+31 6 ..." style="width:100%" oninput="updatePhone('${id}',this.value)">
+        </div>
+      </div>
+    </div>
+    ${b.notes ? `<hr class="divider"><div class="panel-section"><div class="panel-section-title">Notities</div><div style="font-size:12px;color:var(--text-muted);line-height:1.5;padding:8px;background:var(--gray-50);border-radius:6px;">${b.notes}</div></div>` : ''}
+    <hr class="divider"><div class="panel-section"><div class="panel-section-title">Check-in / Check-out</div><div class="field-grid"><div class="field"><div class="field-label">Check-in</div><div class="field-val">${fmtDate(b.start)} om ${b.checkinHour||'16:00'}</div></div><div class="field"><div class="field-label">Check-out</div><div class="field-val">${fmtDate(b.end)} om ${b.checkoutHour||'10:00'}</div></div>${b.lateCheckin?`<div class="field" style="grid-column:span 2"><div class="field-label">Late check-in</div><div class="field-val" style="color:var(--amber)">⚠ Na 20:00 uur</div></div>`:''}</div></div>
+    <hr class="divider">
+    <div class="panel-section">
+      <div class="panel-section-title">Financieel overzicht</div>
+      <table class="fin-table">
+        <tr><td class="label">Huurprijs</td><td class="amount">
+          <input type="number" class="field-val editable" style="width:90px;text-align:right;padding:3px 6px;" value="${b.price.toFixed(2)}" oninput="updatePrice('${id}',this.value)"> €
+        </td></tr>
+        <tr><td class="label">Schoonmaakkosten en linnengoed</td><td class="amount negative">− € ${schoonmaakLinnengoed.toFixed(2)}</td></tr>
+        ${commission>0?`<tr><td class="label">Commissie ${sourceLabel(b.src)}</td><td class="amount negative">− € ${commission.toFixed(2)}</td></tr>`:''}
+        <tr><td class="label">Netto inkomsten</td><td class="amount total">€ ${nettoNaCommissie.toFixed(2)}</td></tr>
+        <tr><td class="label">Betaald</td><td class="amount">€ ${b.paid.toFixed(2)}</td></tr>
+        <tr><td class="label">Restbedrag</td><td class="amount ${(b.total-b.paid)>0?'negative':''}">${(b.total-b.paid)>0?'− ':''}€ ${Math.abs(b.total-b.paid).toFixed(2)}</td></tr>
+      </table>
+    </div>
+    <hr class="divider">
+    <div class="panel-section">
+      <div class="panel-section-title">Communicatie</div>
+      ${buildCommStatus(b)}
+    </div>
+  `;
+  document.getElementById('panel-actions').innerHTML = `<button class="btn" onclick="closePanel()">Sluiten</button>`;
+  panel.classList.add('open');
+  overlay.classList.add('open');
+}
+
+function toDatetimeLocal(ts) {
+  if (!ts) return '';
+  const d = new Date(ts);
+  const pad = n => String(n).padStart(2,'0');
+  return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+function updateSentTs(id, key, datetimeVal) {
+  const ts = datetimeVal ? new Date(datetimeVal).getTime() : null;
+  sentLog[id] = {...(sentLog[id]||{}), [key+'_ts']: ts};
+  if (ts) sentLog[id][key] = true;
+  saveLog();
+}
+function toggleSent(id, key, val) {
+  sentLog[id] = {...(sentLog[id]||{}), [key]: val};
+  if (!val) delete sentLog[id][key+'_ts'];
+  else if (!sentLog[id][key+'_ts']) sentLog[id][key+'_ts'] = Date.now();
+  saveLog();
+  // Re-render comm section
+  openBookingDetail(id);
+}
+
+function buildCommRow(b, key, label) {
+  const id = b.id;
+  const log = sentLog[id]||{};
+  const sent = !!log[key];
+  const ts = log[key+'_ts'];
+  const dtVal = toDatetimeLocal(ts);
+  const today = new Date();
+  const daysUntil = b.start ? Math.round((b.start-today)/86400000) : 999;
+  const due = daysUntil <= settings.daysBefore && daysUntil >= 0;
+  const statusBadge = sent
+    ? `<span style="color:var(--green);font-size:11px;font-weight:600">✓ Verzonden</span>`
+    : due
+      ? `<span style="color:var(--red);font-size:11px;font-weight:600">Actie vereist</span>`
+      : `<span style="color:var(--text-faint);font-size:11px">Over ${daysUntil} dagen</span>`;
+
+  return `<div style="padding:10px 0;border-bottom:1px solid var(--border)">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">
+      <span style="font-size:12px;font-weight:500">${label}</span>
+      <div style="display:flex;align-items:center;gap:8px;">
+        ${statusBadge}
+        <label style="display:flex;align-items:center;gap:4px;font-size:11px;color:var(--text-muted);cursor:pointer">
+          <input type="checkbox" ${sent?'checked':''} onchange="toggleSent('${id}','${key}',this.checked)" style="cursor:pointer">
+          Verzonden
+        </label>
+      </div>
+    </div>
+    <div style="display:flex;align-items:center;gap:8px;">
+      <span style="font-size:11px;color:var(--text-faint);flex-shrink:0">Datum/tijd:</span>
+      <input type="datetime-local" value="${dtVal}"
+        style="font-size:11px;padding:3px 6px;border:1px solid var(--border-strong);border-radius:6px;font-family:var(--font);color:var(--text);background:var(--bg-card)"
+        onchange="updateSentTs('${id}','${key}',this.value)">
+      ${!sent && due ? `<button class="btn-sm primary" style="flex-shrink:0" onclick="toggleSent('${id}','${key}',true)">Markeer nu</button>` : ''}
+    </div>
+  </div>`;
+}
+
+function buildCommStatus(b) {
+  if (b.isEigen || b.isCancelled) return '<div style="font-size:12px;color:var(--text-faint)">Geen communicatie vereist</div>';
+  return buildCommRow(b, 'gast', `Gastmail (${settings.daysBefore} dagen voor aankomst)`)
+       + buildCommRow(b, 'keyholder', 'Keyholder-mail');
+}
+
+
+function fmtSentDate(ts) {
+  if (!ts) return null;
+  const d = new Date(ts);
+  const day = d.getDate();
+  const m = d.getMonth()+1;
+  const y = d.getFullYear();
+  const hh = String(d.getHours()).padStart(2,'0');
+  const mm = String(d.getMinutes()).padStart(2,'0');
+  return `${day}-${m}-${y} ${hh}:${mm}`;
+}
+function sentCellHtml(sent, ts, isEigen, isCancelled) {
+  if (isEigen || isCancelled) return '<span style="color:var(--text-faint);font-size:11px">—</span>';
+  if (sent) {
+    const label = ts ? fmtSentDate(ts) : 'verzonden';
+    return `<span class="sent-cell"><span style="color:var(--green);font-size:13px;font-weight:700">✓</span><span class="sent-tooltip">${label}</span></span>`;
+  }
+  return '<span style="color:var(--text-faint);font-size:13px">✗</span>';
+}
+function updatePrice(id, val) { editedPrices[id]=parseFloat(val)||0; saveBookingField(id,'price',editedPrices[id]); }
+function updateSource(id, val) { editedSources[id]=val; saveBookingField(id,'source',val); bookings=bookings.map(b=>b.id===id?{...b,src:val}:b); renderTable(); }
+function updateAdults(id, val) {
+  editedAdults[id]=val===''?'':parseInt(val)||0; saveBookingField(id,'adults',editedAdults[id]);
+  bookings=bookings.map(b=>{ if(b.id!==id) return b; const a=editedAdults[id]!==undefined?editedAdults[id]:b.adults; const ch=b.children||0; return {...b,adults:editedAdults[id],persons:a!==''?String(Number(a)+Number(ch)):''}; });
+}
+function updateChildren(id, val) {
+  editedChildren[id]=parseInt(val)||0; saveBookingField(id,'children',editedChildren[id]);
+  bookings=bookings.map(b=>{ if(b.id!==id) return b; const a=b.adults!==''?b.adults:0; return {...b,children:editedChildren[id],persons:a!==''?String(Number(a)+Number(editedChildren[id])):''}; });
+}
+function updateCountry(id, val) { editedCountry[id]=val; saveBookingField(id,'country',val); bookings=bookings.map(b=>b.id===id?{...b,country:val}:b); }
+function updateWelcome(id, val) { editedWelcome[id]=val; saveBookingField(id,'welcome',val); bookings=bookings.map(b=>b.id===id?{...b,welcomeGift:val}:b); }
+function updateEmail(id, val) { editedEmail[id]=val; saveBookingField(id,'email',val); bookings=bookings.map(b=>b.id===id?{...b,email:val}:b); }
+function updatePhone(id, val) { editedPhone[id]=val; saveBookingField(id,'phone',val); bookings=bookings.map(b=>b.id===id?{...b,phone:val}:b); }
+
+// Country autocomplete
+const COUNTRIES = ["Afghanistan","Albanië","Algerije","Argentinië","Australië","België","Bolivia","Bosnië en Herzegovina","Brazilië","Bulgarije","Canada","Chili","China","Colombia","Denemarken","Duitsland","Ecuador","Egypte","Estland","Ethiopië","Finland","Frankrijk","Ghana","Griekenland","Hongarije","Ierland","India","Indonesië","Irak","Iran","Israël","Italië","Japan","Jordanië","Kazachstan","Kroatië","Letland","Libanon","Litouwen","Luxemburg","Marokko","Mexico","Nederland","Nieuw-Zeeland","Nigeria","Noorwegen","Oekraïne","Oostenrijk","Pakistan","Peru","Polen","Portugal","Roemenië","Rusland","Saudi-Arabië","Servië","Singapore","Slovenië","Slowakije","Spanje","Sri Lanka","Thailand","Tsjechië","Tunesië","Turkije","Verenigd Koninkrijk","Verenigde Arabische Emiraten","Verenigde Staten","Vietnam","Wit-Rusland","Zuid-Afrika","Zuid-Korea","Zweden","Zwitserland"];
+function showCountryList(id) { filterCountries(id, document.getElementById('country-input-'+id)?.value||''); }
+function hideCountryList(id) { const el=document.getElementById('country-list-'+id); if(el) el.style.display='none'; }
+function filterCountries(id, val) {
+  const list = document.getElementById('country-list-'+id);
+  if (!list) return;
+  const matches = val.length===0 ? COUNTRIES : COUNTRIES.filter(c=>c.toLowerCase().includes(val.toLowerCase()));
+  if (matches.length===0) { list.style.display='none'; return; }
+  list.innerHTML = matches.slice(0,20).map(c=>`<div style="padding:7px 12px;font-size:12px;cursor:pointer;border-bottom:1px solid var(--border)" onmousedown="selectCountry('${id}','${c}')" onmouseover="this.style.background='var(--gray-50)'" onmouseout="this.style.background=''">${c}</div>`).join('');
+  list.style.display='block';
+}
+function selectCountry(id, val) {
+  updateCountry(id, val);
+  const inp = document.getElementById('country-input-'+id);
+  if (inp) inp.value = val;
+  hideCountryList(id);
+}
+
+function closePanel() {
+  document.getElementById('detail-panel').classList.remove('open');
+  document.getElementById('panel-overlay').classList.remove('open');
+  render();
+}
+
+// ─── RENDER ──────────────────────────────────────────────────────────────────
+function render() {
+  renderMetrics();
+  renderTable();
+  renderWerkItems();
+  updateBadges();
+  if (currentView==='kalender') renderCalendar();
+  const hasData = bookings.length > 0;
+  document.getElementById('no-data-state').style.display = hasData ? 'none' : 'block';
+  document.getElementById('werkvoorraad-preview').style.display = hasData ? 'block' : 'none';
+  if (hasData) {
+    const wvPrev = document.getElementById('werkvoorraad-preview');
+    const items = buildWerkvoorraad();
+    if (items.length > 0) {
+      wvPrev.innerHTML = `<div class="section"><div class="section-header"><div class="section-title">Werkvoorraad</div></div><div id="wv-preview-list"></div></div>`;
+      renderWerkvoorraad(document.getElementById('wv-preview-list'));
+    } else {
+      wvPrev.innerHTML = '';
+    }
+  }
+}
+
+function renderMetrics() {
+  const today = new Date();
+  const thisYear = today.getFullYear();
+  const yearStart = new Date(thisYear, 0, 1);
+  const yearEnd = new Date(thisYear, 11, 31);
+  // Actieve boekingen = aankomend (start >= vandaag) + huidig (gast is er: start <= vandaag < end) + volledig in dit kalenderjaar
+  const active = bookings.filter(b => {
+    if (b.isCancelled || b.isEigen) return false;
+    const inYear = b.start && b.start <= yearEnd && b.end && b.end >= yearStart;
+    const upcoming = b.start && b.start >= today;
+    const current = b.start && b.start <= today && b.end && b.end > today;
+    return inYear || upcoming || current;
+  }).length;
+  document.getElementById('m-active').textContent = active;
+  const upcoming = bookings.filter(b=>!b.isCancelled&&!b.isEigen&&b.start&&(b.start>=today||(b.start<=today&&b.end>today))).sort((a,b)=>a.start-b.start);
+  if (upcoming.length>0) {
+    const n = upcoming[0];
+    document.getElementById('m-next').textContent = fmtDateShort(n.start);
+    document.getElementById('m-next-sub').textContent = `${n.name} · ${n.nights} nachten`;
+  } else {
+    document.getElementById('m-next').textContent = '—';
+    document.getElementById('m-next-sub').textContent = '';
+  }
+  const werkItems = isFirstUpload ? 0 : buildWerkvoorraad().filter(i=>!sentLog[i.booking.id]?.[i.type==='gast'?'gast':i.type==='keyholder'?'keyholder':'annulering']).length;
+  document.getElementById('m-werk').textContent = werkItems;
+  // Omzet lopend kalenderjaar
+  const omzet = bookings.filter(b=>!b.isCancelled&&!b.isEigen&&b.start&&b.start.getFullYear()===thisYear).reduce((s,b)=>s+b.price,0);
+  document.getElementById('m-omzet').textContent = '€ '+Math.round(omzet).toLocaleString('nl-NL');
+}
+
+function renderTable() {
+  const tbody = document.getElementById('bookings-body');
+  if (!tbody) return;
+  const today = new Date();
+  let filtered = bookings;
+  if (currentFilter==='bevestigd') filtered = bookings.filter(b=>!b.isCancelled&&!b.isEigen&&(b.status||'').toLowerCase().includes('bevestigd'));
+  if (currentFilter==='optie') filtered = bookings.filter(b=>!b.isCancelled&&!b.isEigen&&(b.status||'').toLowerCase().includes('voorlopig'));
+  if (currentFilter==='geannuleerd') filtered = bookings.filter(b=>b.isCancelled);
+  if (currentFilter==='eigen') filtered = bookings.filter(b=>b.isEigen);
+  tbody.innerHTML = filtered.map(b => {
+    const log = sentLog[b.id]||{};
+    const daysUntil = b.start ? Math.round((b.start-today)/86400000) : 999;
+    const needsAction = !isFirstUpload && !b.isCancelled && !b.isEigen && daysUntil<=settings.daysBefore && daysUntil>=0 && (!log.gast||!log.keyholder);
+    const needsCancel = b.isCancelled && log.keyholder && !log.annulering;
+    return `<tr class="clickable ${b.isCancelled?'cancelled':''}" onclick="openBookingDetail('${b.id}')">
+      <td><div class="guest-name">${b.name}</div></td>
+      <td>${fmtDateShort(b.start)}</td>
+      <td>${fmtDateShort(b.end)}</td>
+      <td><span class="nights-badge">${b.nights}</span></td>
+      <td>${b.adults!==''&&b.adults!==undefined?b.adults:'<span style="color:var(--text-faint)">—</span>'}</td>
+      <td>${b.children>0?b.children:'<span style="color:var(--text-faint)">0</span>'}</td>
+      <td>${b.country||'<span style="color:var(--text-faint)">—</span>'}</td>
+      <td><span class="src-badge ${sourceClass(b.src)}">${sourceLabel(b.src)}</span></td>
+      <td class="price-cell">€ ${b.price.toFixed(2)}</td>
+      <td><span class="status-badge ${statusClass(b.status)}">${b.status||'—'}</span></td>
+      <td class="${b.welcomeGift?'welcome-yes':'welcome-no'}">${b.isEigen||b.isCancelled?'—':b.welcomeGift?'✓ Ja':'✗ Nee'}</td>
+      <td>${sentCellHtml(log.gast, log.gast_ts, b.isEigen, b.isCancelled)}</td>
+      <td>${sentCellHtml(log.keyholder, log.keyholder_ts, b.isEigen, b.isCancelled)}</td>
+      <td>${needsAction||needsCancel?'<span class="action-needed">● Actie</span>':''}</td>
+    </tr>`;
+  }).join('');
+}
+
+function renderWerkItems() {
+  const list = document.getElementById('wv-list');
+  if (!list) return;
+  renderWerkvoorraad(list);
+}
+
+function updateBadges() {
+  if (isFirstUpload) { document.getElementById('topbar-alert').style.display='none'; return; }
+  const items = buildWerkvoorraad();
+  const open = items.filter(i => {
+    const log = sentLog[i.booking.id]||{};
+    const key = i.type==='gast'?'gast':i.type==='keyholder'?'keyholder':'annulering';
+    return !log[key];
+  }).length;
+  const alertEl = document.getElementById('topbar-alert');
+  const wvBadge = document.getElementById('wv-badge');
+  const werkBadge = document.getElementById('werk-badge');
+  if (open > 0) {
+    alertEl.style.display='inline-flex';
+    alertEl.textContent = open+' taken openstaand';
+    wvBadge.style.display='inline-flex';
+    wvBadge.textContent = open;
+    if (werkBadge) { werkBadge.style.display='inline-flex'; werkBadge.textContent=open; }
+  } else {
+    alertEl.style.display='none';
+    wvBadge.style.display='none';
+    if (werkBadge) werkBadge.style.display='none';
+  }
+}
+
+// ─── KALENDER ────────────────────────────────────────────────────────────────
+function renderCalendar() {
+  const grid = document.getElementById('cal-grid');
+  const label = document.getElementById('cal-month-label');
+  if (!grid) return;
+  const monthNames = ['januari','februari','maart','april','mei','juni','juli','augustus','september','oktober','november','december'];
+  label.textContent = monthNames[calMonth]+' '+calYear;
+  const firstDay = new Date(calYear, calMonth, 1).getDay();
+  const startOffset = (firstDay+6)%7;
+  const daysInMonth = new Date(calYear, calMonth+1, 0).getDate();
+  const today = new Date();
+  const dayHeaders = ['Ma','Di','Wo','Do','Vr','Za','Zo'];
+  let html = dayHeaders.map(d=>`<div class="cal-day-header">${d}</div>`).join('');
+  for (let i=0;i<startOffset;i++) html+=`<div class="cal-day empty"></div>`;
+  for (let day=1;day<=daysInMonth;day++) {
+    const date = new Date(calYear, calMonth, day);
+    const isToday = date.toDateString()===today.toDateString();
+    const dayBookings = bookings.filter(b=>b.start&&b.end&&!b.isCancelled&&date>=b.start&&date<b.end);
+    html+=`<div class="cal-day ${isToday?'today':''}">
+      <div class="cal-day-num">${day}</div>
+      ${dayBookings.slice(0,2).map(b=>{
+        const cls = b.src==='airbnb'?'cal-airbnb':b.src==='booking'?'cal-booking-com':b.src==='familie'?'cal-familie':b.isEigen?'cal-eigen':'cal-website';
+        return `<div class="cal-booking ${cls}" title="${b.name}">${b.name.split(' ')[0]||'—'}</div>`;
+      }).join('')}
+      ${dayBookings.length>2?`<div style="font-size:9px;color:var(--text-faint)">+${dayBookings.length-2}</div>`:''}
+    </div>`;
+  }
+  grid.innerHTML = html;
+}
+function calPrev() { calMonth--; if(calMonth<0){calMonth=11;calYear--;} renderCalendar(); }
+function calNext() { calMonth++; if(calMonth>11){calMonth=0;calYear++;} renderCalendar(); }
+
+// ─── NAVIGATION ──────────────────────────────────────────────────────────────
+function showPage(page) {
+  ['overzicht','boekingen','werkvoorraad','beschikbaarheid','gebruikers','instellingen'].forEach(p => {
+    const el = document.getElementById('page-'+p);
+    if (el) el.style.display = p===page ? (p==='boekingen'?'flex':'block') : 'none';
+  });
+  document.querySelectorAll('.nav-item').forEach((el,i)=>{
+    const pages=['overzicht','boekingen','werkvoorraad','beschikbaarheid','gebruikers','instellingen'];
+    el.classList.toggle('active', pages[i]===page);
+  });
+  document.getElementById('page-title').textContent = {overzicht:'Overzicht',boekingen:'Boekingen',werkvoorraad:'Werkvoorraad',beschikbaarheid:'Beschikbaarheid',gebruikers:'Beheerders',instellingen:'Instellingen'}[page];
+  if (page==='boekingen'&&currentView==='kalender') renderCalendar();
+  if (page==='gebruikers') loadUsers();
+}
+
+function setFilter(f, el) {
+  currentFilter = f;
+  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+  el.classList.add('active');
+  renderTable();
+}
+
+function setView(v, el) {
+  currentView = v;
+  document.querySelectorAll('.view-btn').forEach(b=>b.classList.remove('active'));
+  el.classList.add('active');
+  document.getElementById('view-tabel').style.display = v==='tabel'?'block':'none';
+  document.getElementById('view-kalender').style.display = v==='kalender'?'block':'none';
+  if (v==='kalender') renderCalendar();
+}
+
+
+
+async function setupTotp() {
+  const area = document.getElementById('totp-setup-area');
+  area.innerHTML = '<div style="font-size:12px;color:var(--text-muted)">Bezig met laden...</div>';
+  const { data, error } = await sb.auth.mfa.enroll({ factorType: 'totp', friendlyName: 'Casa Pura Vida 14' });
+  if (error) { area.innerHTML = `<div style="color:var(--red);font-size:12px">${error.message}</div>`; return; }
+  const qr = data.totp.qr_code;
+  const secret = data.totp.secret;
+  const factorId = data.id;
+  area.innerHTML = `
+    <div style="margin-bottom:12px">
+      <img src="${qr}" style="width:180px;height:180px;border:1px solid var(--border);border-radius:8px;display:block;margin-bottom:8px;">
+      <div style="font-size:11px;color:var(--text-muted)">Of voer deze code handmatig in: <span style="font-family:var(--mono);font-weight:600;color:var(--text)">${secret}</span></div>
+    </div>
+    <div style="margin-bottom:10px">
+      <label style="font-size:11px;font-weight:600;color:var(--text-faint);display:block;margin-bottom:4px;">Verificatiecode (6 cijfers)</label>
+      <input type="text" id="totp-verify-code" maxlength="6" inputmode="numeric" placeholder="123456"
+        style="padding:8px 10px;border:1px solid var(--border-strong);border-radius:6px;font-size:16px;font-family:var(--mono);letter-spacing:4px;width:140px;">
+    </div>
+    <button class="btn btn-primary" onclick="verifyTotpSetup('${factorId}')">Activeren</button>
+    <div id="totp-setup-error" style="color:var(--red);font-size:12px;margin-top:8px;"></div>
+  `;
+}
+
+async function verifyTotpSetup(factorId) {
+  const code = document.getElementById('totp-verify-code').value.trim();
+  const errEl = document.getElementById('totp-setup-error');
+  if (!code || code.length !== 6) { errEl.textContent = 'Voer een 6-cijferige code in.'; return; }
+  const { data: challenge, error: ce } = await sb.auth.mfa.challenge({ factorId });
+  if (ce) { errEl.textContent = ce.message; return; }
+  const { error } = await sb.auth.mfa.verify({ factorId, challengeId: challenge.id, code });
+  if (error) { errEl.textContent = 'Ongeldige code. Probeer opnieuw.'; return; }
+  document.getElementById('totp-setup-area').innerHTML = '<div style="color:var(--green);font-size:13px;font-weight:600">✓ 2FA succesvol geactiveerd!</div>';
+}
+
+// ─── BESCHIKBAARHEID ─────────────────────────────────────────────────────────
+let monthPrices = {1:0,2:0,3:0,4:0,5:0,6:0,7:0,8:0,9:0,10:0,11:0,12:0};
+const MONTH_NAMES = ['jan','feb','mrt','apr','mei','jun','jul','aug','sep','okt','nov','dec'];
+const MONTH_NAMES_LONG = ['januari','februari','maart','april','mei','juni','juli','augustus','september','oktober','november','december'];
+
+function loadMonthPrices() {
+  try {
+    const mp = localStorage.getItem('cpv_monthprices');
+    if (mp) monthPrices = JSON.parse(mp);
+  } catch(e) {}
+}
+function saveMonthPrices() {
+  try { localStorage.setItem('cpv_monthprices', JSON.stringify(monthPrices)); } catch(e) {}
+}
+
+function initMonthPricesGrid() {
+  const grid = document.getElementById('month-prices-grid');
+  if (!grid) return;
+  grid.innerHTML = Array.from({length:12},(_,i)=>{
+    const m = i+1;
+    return `<div>
+      <div style="font-size:10px;font-weight:600;color:var(--text-faint);text-transform:uppercase;letter-spacing:.04em;margin-bottom:3px">${MONTH_NAMES[i]}</div>
+      <div style="display:flex;align-items:center;gap:3px">
+        <span style="font-size:11px;color:var(--text-muted)">€</span>
+        <input type="number" id="mp-${m}" value="${monthPrices[m]||0}" min="0" step="5"
+          class="field-val editable" style="width:64px;padding:4px 6px;font-size:12px;border:1px solid var(--border-strong);border-radius:6px;font-family:var(--mono)"
+          oninput="monthPrices[${m}]=parseFloat(this.value)||0;saveMonthPrices()">
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function initAvailDates() {
+  const today = new Date();
+  const fmt = d => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+  document.getElementById('avail-start').value = fmt(today);
+  const end = new Date(today.getFullYear()+1, today.getMonth(), today.getDate());
+  document.getElementById('avail-end').value = fmt(end);
+}
+
+function parseLocalDate(s) {
+  if (!s) return null;
+  const [y,m,d] = s.split('-').map(Number);
+  return new Date(y, m-1, d);
+}
+function localKey(d) {
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+}
+function getAvailablePeriods(startDate, endDate, minNights) {
+  // Build a set of booked days (active, non-cancelled bookings only)
+  // Cancelled = available, Eigen gebruik = NOT available
+  const bookedDays = new Set();
+  bookings.forEach(b => {
+    if (b.isCancelled || !b.start || !b.end) return; // cancelled = available
+    // Block the days BETWEEN start and end (exclusive both).
+    // Start day = uitcheckdag vorige gast / incheckdag nieuwe gast = beschikbaar.
+    // End day = uitcheckdag deze gast = ook beschikbaar voor volgende gast.
+    // So only the days strictly between start+1 and end-1 are truly blocked.
+    // Equivalently: block from day after start, up to (not including) end.
+    let d = new Date(b.start.getFullYear(), b.start.getMonth(), b.start.getDate() + 1);
+    const blockEnd = new Date(b.end);
+    while (d < blockEnd) {
+      bookedDays.add(localKey(d));
+      d = new Date(d.getFullYear(), d.getMonth(), d.getDate() + 1);
+    }
+  });
+
+  // Walk day by day and find free stretches
+  const periods = [];
+  let freeStart = null;
+  let cursor = new Date(startDate);
+  const end = new Date(endDate);
+
+  // Regel:
+  // - Een boeking blokkeert de dagen NA de startdag t/m de dag VOOR de einddag.
+  // - De startdag van een boeking = beschikbaar (uitcheck 10:00, incheck 15:00 zelfde dag).
+  // - De einddag van een boeking = beschikbaar voor volgende gast (incheck 15:00).
+  // - Vrije periode loopt van dag A t/m dag B (beide beschikbaar).
+  // - Nachten = B - A (in kalenderdagen). Voorbeeld: 25 mei t/m 31 mei = 6 nachten.
+  while (cursor <= end) {
+    const key = localKey(cursor);
+    const isFree = !bookedDays.has(key);
+    if (isFree && !freeStart) {
+      freeStart = new Date(cursor);
+    } else if (!isFree && freeStart) {
+      // cursor = eerste geblokte dag = dag NA de laatste vrije dag
+      // laatste vrije dag = cursor - 1, maar de startdag van de boeking (= cursor - 1 + 1 = cursor zelf)
+      // is ook beschikbaar. Wacht — blocked days zijn start+1 t/m end-1.
+      // Dus cursor = eerste geblokte dag = start+1 van volgende boeking.
+      // De startdag van de volgende boeking (cursor - 1 + 1 = cursor) is NIET geblokt.
+      // Dus de vrije periode eindigt op cursor - 1 + 1 = cursor? Nee:
+      // cursor is geblokt = start+1 van boeking. Dus startdag boeking = cursor - 1.
+      // Maar startdag boeking is BESCHIKBAAR. Dus periodEnd = cursor - 1 + 1 = de startdag = cursor - 1... 
+      // Voorbeeld: boeking start 31 mei → geblokt: 1 jun, 2 jun... cursor treft 1 jun.
+      // Vrije periode eindigt op 31 mei (= startdag boeking = beschikbaar).
+      // Nachten = 31 mei - freeStart. Dus periodEnd = cursor - 1.
+      const periodEnd = new Date(cursor.getFullYear(), cursor.getMonth(), cursor.getDate() - 1);
+      const nights = Math.round((periodEnd - freeStart) / 86400000);
+      if (nights >= minNights) periods.push({start: new Date(freeStart), end: periodEnd, nights});
+      freeStart = null;
+    }
+    cursor = new Date(cursor.getFullYear(), cursor.getMonth(), cursor.getDate() + 1);
+  }
+  // Sluit laatste periode
+  if (freeStart) {
+    const nights = Math.round((end - freeStart) / 86400000);
+    if (nights >= minNights) periods.push({start: new Date(freeStart), end: new Date(end), nights});
+  }
+  return periods;
+}
+
+function getPriceForPeriod(start, nights) {
+  // Use the month of the start date for price
+  const m = start.getMonth() + 1;
+  const price = monthPrices[m] || 0;
+  return price;
+}
+
+function getMonthBlocks(start, end) {
+  // Returns array of {month (1-12), year, nights} for each month in the period
+  // Period: from start (incl) to end (incl), nights = end - start
+  const blocks = [];
+  let cursor = new Date(start.getFullYear(), start.getMonth(), start.getDate());
+  const endDate = new Date(end);
+  while (cursor < endDate) {
+    const m = cursor.getMonth() + 1;
+    const y = cursor.getFullYear();
+    // Count nights in this month
+    const monthEnd = new Date(y, cursor.getMonth() + 1, 1); // first day next month
+    const blockEnd = monthEnd < endDate ? monthEnd : endDate;
+    const nights = Math.round((blockEnd - cursor) / 86400000);
+    if (nights > 0) blocks.push({month: m, year: y, nights});
+    cursor = new Date(y, cursor.getMonth() + 1, 1);
+  }
+  return blocks;
+}
+
+function buildPriceHtml(start, end) {
+  const blocks = getMonthBlocks(start, end);
+  const allZero = blocks.every(b => !monthPrices[b.month]);
+  if (allZero) return `<span style="font-size:11px;color:var(--text-faint)">geen prijs ingesteld</span>`;
+  // If all blocks have the same price, show once
+  const prices = blocks.map(b => monthPrices[b.month] || 0);
+  const allSame = prices.every(p => p === prices[0]);
+  if (allSame) {
+    return prices[0] > 0
+      ? `<span style="font-family:var(--mono);font-size:12px;color:var(--green);font-weight:600">€ ${prices[0]} / nacht</span>`
+      : `<span style="font-size:11px;color:var(--text-faint)">geen prijs ingesteld</span>`;
+  }
+  // Multiple months with different prices
+  return blocks.map(b => {
+    const p = monthPrices[b.month] || 0;
+    const label = MONTH_NAMES[b.month - 1];
+    return p > 0
+      ? `<div style="font-size:11px;color:var(--text-muted)">${label}: <span style="font-family:var(--mono);font-weight:600;color:var(--green)">€ ${p} / nacht</span></div>`
+      : `<div style="font-size:11px;color:var(--text-faint)">${label}: geen prijs</div>`;
+  }).join('');
+}
+
+function buildPriceText(start, end) {
+  const blocks = getMonthBlocks(start, end);
+  const allZero = blocks.every(b => !monthPrices[b.month]);
+  if (allZero) return '';
+  const prices = blocks.map(b => monthPrices[b.month] || 0);
+  const allSame = prices.every(p => p === prices[0]);
+  if (allSame) return prices[0] > 0 ? ` — € ${prices[0]} p/n` : '';
+  return ' — ' + blocks.map(b => {
+    const p = monthPrices[b.month] || 0;
+    return p > 0 ? `${MONTH_NAMES[b.month-1]}: € ${p} p/n` : `${MONTH_NAMES[b.month-1]}: geen prijs`;
+  }).join(', ');
+}
+
+
+function renderBeschikbaarheid() {
+  const startVal = document.getElementById('avail-start').value;
+  const endVal = document.getElementById('avail-end').value;
+  const minNights = parseInt(document.getElementById('avail-min').value) || 3;
+
+  if (!startVal || !endVal) { alert('Vul start- en einddatum in.'); return; }
+  if (!bookings.length) { alert('Upload eerst een CSV bestand.'); return; }
+
+  const startDate = parseLocalDate(startVal);
+  const endDate = parseLocalDate(endVal);
+  if (endDate <= startDate) { alert('Einddatum moet na startdatum liggen.'); return; }
+
+  const periods = getAvailablePeriods(startDate, endDate, minNights);
+
+  const resultsSection = document.getElementById('avail-results-section');
+  const emptyState = document.getElementById('avail-empty');
+  const list = document.getElementById('avail-list');
+  const title = document.getElementById('avail-results-title');
+
+  if (periods.length === 0) {
+    resultsSection.style.display = 'none';
+    emptyState.style.display = 'block';
+    document.getElementById('avail-empty-min').textContent = minNights;
+    return;
+  }
+
+  emptyState.style.display = 'none';
+  resultsSection.style.display = 'block';
+  title.textContent = `Beschikbare periodes (${periods.length})`;
+
+  list.innerHTML = periods.map((p, i) => {
+    const priceHtml = buildPriceHtml(p.start, p.end);
+    return `<div style="display:flex;align-items:flex-start;justify-content:space-between;padding:11px 18px;border-bottom:1px solid var(--border);${i%2===0?'background:var(--gray-50)':''}">
+      <div style="display:flex;align-items:flex-start;gap:16px">
+        <div style="width:6px;height:6px;border-radius:50%;background:var(--green);flex-shrink:0;margin-top:5px"></div>
+        <div>
+          <div style="font-size:13px;font-weight:500;color:var(--text)">${fmtDate(p.start)} — ${fmtDate(p.end)}</div>
+          <div style="font-size:11px;color:var(--text-muted);margin-top:1px">${p.nights} nachten beschikbaar</div>
+        </div>
+      </div>
+      <div style="text-align:right;flex-shrink:0;margin-left:16px">${priceHtml}</div>
+    </div>`;
+  }).join('');
+}
+
+let availLang = 'nl';
+function setAvailLang(lang, el) {
+  availLang = lang;
+  document.querySelectorAll('#lang-nl,#lang-en').forEach(b => b.classList.remove('active'));
+  el.classList.add('active');
+}
+
+function fmtDateAvail(d) {
+  // Format date without year if same year as end, add year if needed
+  if (!d) return '';
+  if (availLang === 'en') {
+    const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    return `${d.getDate()} ${months[d.getMonth()]}`;
+  } else {
+    const months = ['jan','feb','mrt','apr','mei','jun','jul','aug','sep','okt','nov','dec'];
+    return `${d.getDate()} ${months[d.getMonth()]}`;
+  }
+}
+function fmtDateAvailFull(d) {
+  if (!d) return '';
+  if (availLang === 'en') {
+    const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    return `${d.getDate()} ${months[d.getMonth()]} ${d.getFullYear()}`;
+  } else {
+    const months = ['jan','feb','mrt','apr','mei','jun','jul','aug','sep','okt','nov','dec'];
+    return `${d.getDate()} ${months[d.getMonth()]} ${d.getFullYear()}`;
+  }
+}
+function fmtMonthAvail(m) {
+  if (availLang === 'en') {
+    return ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][m-1];
+  }
+  return ['jan','feb','mrt','apr','mei','jun','jul','aug','sep','okt','nov','dec'][m-1];
+}
+
+function buildPriceTextFormatted(start, end) {
+  const blocks = getMonthBlocks(start, end);
+  if (!blocks.length) return availLang === 'en' ? 'no price set' : 'geen prijs';
+  const allZero = blocks.every(b => !monthPrices[b.month]);
+  if (allZero) return availLang === 'en' ? 'no price set' : 'geen prijs';
+  const prices = blocks.map(b => monthPrices[b.month] || 0);
+  const allSame = prices.every(p => p === prices[0]);
+  if (allSame) return prices[0] > 0 ? `€ ${prices[0]}` : (availLang === 'en' ? 'no price set' : 'geen prijs');
+  // Different prices per month
+  return blocks.map(b => {
+    const p = monthPrices[b.month] || 0;
+    return p > 0 ? `€ ${p} (${fmtMonthAvail(b.month)})` : `- (${fmtMonthAvail(b.month)})`;
+  }).join(' / ');
+}
+
+function fmtPeriodLabel(p) {
+  // Show start date without year if same year as end, with year if different
+  const sameYear = p.start.getFullYear() === p.end.getFullYear();
+  const startStr = sameYear ? fmtDateAvail(p.start) : fmtDateAvailFull(p.start);
+  const endStr = fmtDateAvailFull(p.end);
+  return `${startStr} - ${endStr}`;
+}
+
+function copyBeschikbaarheid() {
+  const startVal = document.getElementById('avail-start').value;
+  const endVal = document.getElementById('avail-end').value;
+  const minNights = parseInt(document.getElementById('avail-min').value) || 3;
+  const startDate = parseLocalDate(startVal);
+  const endDate = parseLocalDate(endVal);
+  const periods = getAvailablePeriods(startDate, endDate, minNights);
+  if (!periods.length) return;
+
+  const isNl = availLang === 'nl';
+  const title = isNl ? 'Beschikbare periodes met prijs per nacht' : 'Available periods with price per night';
+  const colPeriod = isNl ? 'Periode' : 'Period';
+  const colNights = isNl ? 'Nachten' : 'Nights';
+  const colPrice = isNl ? 'Prijs/nacht' : 'Price/night';
+
+  const fmtDMY = d => {
+    const dd = String(d.getDate()).padStart(2,'0');
+    const mm = String(d.getMonth()+1).padStart(2,'0');
+    return `${dd}-${mm}-${d.getFullYear()}`;
+  };
+  const periodLabels = periods.map(p => `${fmtDMY(p.start)} - ${fmtDMY(p.end)}`);
+  const priceLabels  = periods.map(p => buildPriceTextFormatted(p.start, p.end));
+  const nightLabels  = periods.map(p => String(p.nights));
+
+  // Build HTML table — renders perfectly in Gmail/Outlook with fixed columns
+  const base     = 'padding:8px 20px 8px 0;font-family:Arial,sans-serif;font-size:14px;color:#1a1714;white-space:nowrap;vertical-align:top;';
+  const thBase   = base + 'font-weight:700;border-bottom:2px solid #CBC4BA;padding-bottom:10px;';
+  const trAlt    = 'background:#f5f2ee;';
+
+  // Column alignments:
+  // Periode: left  |  Nachten header: center, values: right  |  Prijs/nacht header: left, values: left
+  const thPeriod = thBase  + 'text-align:left;';
+  const thNights = thBase  + 'text-align:center;padding-right:12px;padding-left:12px;width:60px;';
+  const thPrice  = thBase  + 'text-align:center;';
+  const tdPeriod = base    + 'text-align:left;';
+  const tdNights = base    + 'text-align:center;padding-right:12px;padding-left:12px;width:60px;';
+  const tdPrice  = base    + 'text-align:center;';
+
+  const rowsHtml = periods.map((p,i) => {
+    const bg = i % 2 === 0 ? '' : trAlt;
+    return `<tr style="${bg}">
+      <td style="${tdPeriod}">${periodLabels[i]}</td>
+      <td style="${tdNights}">${nightLabels[i]}</td>
+      <td style="${tdPrice}">${priceLabels[i]}</td>
+    </tr>`;
+  }).join('');
+
+  const html = `
+<div style="font-family:Arial,sans-serif;font-size:14px;color:#1a1714;">
+  <p style="margin:0 0 16px;font-weight:700;font-size:15px;">${title}</p>
+  <table cellpadding="0" cellspacing="0" border="0" style="border-collapse:collapse;">
+    <thead>
+      <tr>
+        <th style="${thPeriod}">${colPeriod}</th>
+        <th style="${thNights}">${colNights}</th>
+        <th style="${thPrice}">${colPrice}</th>
+      </tr>
+    </thead>
+    <tbody>${rowsHtml}</tbody>
+  </table>
+</div>`;
+
+  // Copy as HTML to clipboard (works in Gmail, Outlook, Apple Mail)
+  const blob = new Blob([html], {type: 'text/html'});
+  const item = new ClipboardItem({'text/html': blob});
+  navigator.clipboard.write([item]).then(() => {
+    alert(`${periods.length} periode(s) gekopieerd als tabel — plak direct in Gmail of Outlook!`);
+  }).catch(() => {
+    // Fallback: plain text with pipe
+    const plain = [title, '', `${colPeriod} | ${colNights} | ${colPrice}`,
+      ...periods.map((p,i) => `${periodLabels[i]} | ${nightLabels[i]} | ${priceLabels[i]}`)
+    ].join('\n');
+    navigator.clipboard.writeText(plain).then(() => alert('Gekopieerd als platte tekst (HTML niet ondersteund in deze browser)'));
+  });
+}
+
+// ─── INIT ─────────────────────────────────────────────────────────────────────
+loadStorage();
+loadMonthPrices();
+document.getElementById('kh-email-input').value = settings.keyholderEmail;
+document.getElementById('sender-name').value = settings.senderName;
+document.getElementById('gift-threshold').value = settings.giftThreshold;
+document.getElementById('days-before').value = settings.daysBefore;
+document.getElementById('kh-email-display').textContent = settings.keyholderEmail;
+render();
+initMonthPricesGrid();
+initAvailDates();
+</script>
+</body>
+</html>
