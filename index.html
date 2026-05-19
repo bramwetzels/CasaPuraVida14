@@ -1551,27 +1551,40 @@ async function handleLogin() {
   const email = document.getElementById('auth-email').value.trim();
   const password = document.getElementById('auth-password').value;
   const errEl = document.getElementById('auth-error');
+  const btn = document.getElementById('auth-btn');
   errEl.textContent = '';
   if (!email || !password) { errEl.textContent = 'Vul e-mail en wachtwoord in.'; return; }
-  const btn = document.getElementById('auth-btn');
   btn.textContent = 'Bezig...'; btn.disabled = true;
   try {
     const { data, error } = await sb.auth.signInWithPassword({ email, password });
     if (error) {
       errEl.textContent = error.message === 'Invalid login credentials'
         ? 'Onjuist e-mailadres of wachtwoord.' : error.message;
+      btn.textContent = 'Inloggen'; btn.disabled = false;
       return;
     }
-    // Check if MFA required after login
+    // Login geslaagd — onAuthStateChange handelt de rest af
+    // Controleer of MFA vereist is
     const { data: aal } = await sb.auth.mfa.getAuthenticatorAssuranceLevel();
     if (aal?.nextLevel === 'aal2' && aal?.currentLevel !== 'aal2') {
       const { data: factors } = await sb.auth.mfa.listFactors();
       const totp = factors?.totp?.[0];
-      if (totp) { totpFactorId = totp.id; showTotpScreen(); return; }
+      if (totp) {
+        totpFactorId = totp.id;
+        showTotpScreen();
+        btn.textContent = 'Inloggen'; btn.disabled = false;
+        return;
+      }
     }
+    // Geen MFA — handmatig app laden (onAuthStateChange kan traag zijn)
+    currentUser = data.user;
+    const { data: profile } = await sb.from('profiles').select('*').eq('id', currentUser.id).single();
+    currentProfile = profile;
+    await loadStorage();
+    showApp();
   } catch(e) {
-    errEl.textContent = 'Er ging iets mis. Probeer opnieuw.';
-  } finally {
+    console.error('Login error:', e);
+    errEl.textContent = 'Fout: ' + (e.message || 'Onbekende fout. Controleer de console.');
     btn.textContent = 'Inloggen'; btn.disabled = false;
   }
 }
