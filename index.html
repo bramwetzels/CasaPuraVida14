@@ -1498,14 +1498,9 @@ async function init() {
     'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFiaGNydWVlcHllbnR3c3hhcHF5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzkwOTg0OTUsImV4cCI6MjA5NDY3NDQ5NX0.Xbbc9vhxQifGD2kh74HhCQBwRfHE73AzrunAHTpXvhU'
   );
 
-  sb.auth.onAuthStateChange(async (event, session) => {
-    if (event === 'SIGNED_IN' && session) {
-      currentUser = session.user;
-      const { data: profile } = await sb.from('profiles').select('*').eq('id', currentUser.id).single();
-      currentProfile = profile;
-      await loadStorage();
-      showApp();
-    } else if (event === 'SIGNED_OUT') {
+  // Alleen uitloggen via onAuthStateChange afhandelen
+  sb.auth.onAuthStateChange((event) => {
+    if (event === 'SIGNED_OUT') {
       currentUser = null;
       currentProfile = null;
       showAuthScreen();
@@ -1517,11 +1512,8 @@ async function init() {
     showAuthScreen();
     return;
   }
-  currentUser = session.user;
-  const { data: profile } = await sb.from('profiles').select('*').eq('id', currentUser.id).single();
-  currentProfile = profile;
 
-  // Check if MFA is required
+  // Sessie bestaat — check of MFA nog vereist is
   const { data: aal } = await sb.auth.mfa.getAuthenticatorAssuranceLevel();
   if (aal?.nextLevel === 'aal2' && aal?.currentLevel !== 'aal2') {
     const { data: factors } = await sb.auth.mfa.listFactors();
@@ -1529,6 +1521,13 @@ async function init() {
     if (totp) { totpFactorId = totp.id; showAuthScreen(); showTotpScreen(); return; }
   }
 
+  await loadUserAndApp(session.user);
+}
+
+async function loadUserAndApp(user) {
+  currentUser = user;
+  const { data: profile } = await sb.from('profiles').select('*').eq('id', user.id).single();
+  currentProfile = profile;
   await loadStorage();
   showApp();
 }
@@ -1590,12 +1589,8 @@ async function handleLogin() {
         return;
       }
     }
-    // Geen MFA — handmatig app laden (onAuthStateChange kan traag zijn)
-    currentUser = data.user;
-    const { data: profile } = await sb.from('profiles').select('*').eq('id', currentUser.id).single();
-    currentProfile = profile;
-    await loadStorage();
-    showApp();
+    // Geen MFA — direct laden
+    await loadUserAndApp(data.user);
   } catch(e) {
     console.error('Login error:', e);
     errEl.textContent = 'Fout: ' + (e.message || 'Onbekende fout. Controleer de console.');
@@ -1606,18 +1601,23 @@ async function handleLogin() {
 async function handleTotpVerify() {
   const code = document.getElementById('totp-code').value.trim();
   const errEl = document.getElementById('totp-error');
+  const btn = document.getElementById('totp-btn');
   errEl.textContent = '';
   if (!code || code.length !== 6) { errEl.textContent = 'Voer een 6-cijferige code in.'; return; }
-  const btn = document.getElementById('totp-btn');
   btn.textContent = 'Verifiëren...'; btn.disabled = true;
   try {
     const { data: challengeData, error: ce } = await sb.auth.mfa.challenge({ factorId: totpFactorId });
-    if (ce) { errEl.textContent = ce.message; return; }
-    const { error } = await sb.auth.mfa.verify({ factorId: totpFactorId, challengeId: challengeData.id, code });
-    if (error) { errEl.textContent = 'Ongeldige code. Probeer opnieuw.'; return; }
+    if (ce) { errEl.textContent = ce.message; btn.textContent = 'Verifiëren'; btn.disabled = false; return; }
+    const { data: verifyData, error: ve } = await sb.auth.mfa.verify({
+      factorId: totpFactorId, challengeId: challengeData.id, code
+    });
+    if (ve) { errEl.textContent = 'Ongeldige code. Probeer opnieuw.'; btn.textContent = 'Verifiëren'; btn.disabled = false; return; }
+    // MFA geslaagd — haal gebruiker op en laad app
+    const { data: { user } } = await sb.auth.getUser();
+    await loadUserAndApp(user);
   } catch(e) {
-    errEl.textContent = 'Er ging iets mis.';
-  } finally {
+    console.error('TOTP error:', e);
+    errEl.textContent = 'Er ging iets mis: ' + (e.message || 'onbekende fout');
     btn.textContent = 'Verifiëren'; btn.disabled = false;
   }
 }
