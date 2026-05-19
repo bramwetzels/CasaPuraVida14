@@ -243,6 +243,7 @@ tr.cancelled td { opacity: 0.45; }
 .link-input:focus { outline: none; border-color: var(--green); }
 .divider { border: none; border-top: 1px solid var(--border); margin: 16px 0; }
 </style>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 <body>
 
@@ -548,7 +549,20 @@ tr.cancelled td { opacity: 0.45; }
 
 <script>
 // ─── SUPABASE CLIENT ────────────────────────────────────────────────────────
-let sb = null;
+const { createClient: _createClient } = supabase;
+const sb = _createClient(
+  'https://qbhcrueepyentwsxapqy.supabase.co',
+  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFiaGNydWVlcHllbnR3c3hhcHF5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzkwOTg0OTUsImV4cCI6MjA5NDY3NDQ5NX0.Xbbc9vhxQifGD2kh74HhCQBwRfHE73AzrunAHTpXvhU',
+  {
+    auth: {
+      flowType: 'pkce',
+      autoRefreshToken: true,
+      persistSession: true,
+      detectSessionInUrl: true,
+      storage: window.localStorage
+    }
+  }
+);
 let currentUser = null;
 let currentProfile = null;
 
@@ -2033,8 +2047,8 @@ function copyBeschikbaarheid() {
 
 // ─── INIT ─────────────────────────────────────────────────────────────────────
 // Wait for Supabase CDN to load, then init
-window.__cpvInit = function() { init(); };
+// Auto-init
+window.addEventListener('DOMContentLoaded', init);
 </script>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2" onload="window.__cpvInit()"></script>
 </body>
 </html>
