@@ -807,15 +807,15 @@ function handleCSV(event) {
   const file = event.target.files[0];
   if (!file) return;
   const reader = new FileReader();
-  reader.onload = e => {
+  reader.onload = async e => {
     const rows = parseCSV(e.target.result);
     const newBookings = processBookings(rows);
     const newIds = newBookings.map(b=>b.id);
     isFirstUpload = prevBookingIds.length === 0;
-    if (!isFirstUpload) detectChanges(bookings, newBookings);
+    if (!isFirstUpload) await detectChanges(bookings, newBookings);
     bookings = newBookings;
     prevBookingIds = newIds;
-    savePrevIds();
+    await savePrevIds();
     if (isFirstUpload) document.getElementById('first-run-banner').style.display='flex';
     else document.getElementById('first-run-banner').style.display='none';
     render();
@@ -824,9 +824,10 @@ function handleCSV(event) {
   reader.readAsText(file);
 }
 
-function detectChanges(old, newB) {
+async function detectChanges(old, newB) {
   const today = new Date();
   const threshold = settings.daysBefore;
+  let changed = false;
   newB.forEach(b => {
     if (b.isCancelled) {
       const wasActive = old.find(o=>o.id===b.id && !o.isCancelled);
@@ -834,7 +835,7 @@ function detectChanges(old, newB) {
         const log = sentLog[b.id]||{};
         if (log.keyholder && !log.annulering) {
           sentLog[b.id] = {...log, annulering_needed: true};
-          saveLog();
+          changed = true;
         }
       }
     }
@@ -844,11 +845,12 @@ function detectChanges(old, newB) {
         const log = sentLog[b.id]||{};
         if (!log.gast_queued) {
           sentLog[b.id] = {...log, gast_queued: true, keyholder_queued: true};
-          saveLog();
+          changed = true;
         }
       }
     }
   });
+  if (changed) await saveLog();
 }
 
 // ─── WERKVOORRAAD ────────────────────────────────────────────────────────────
