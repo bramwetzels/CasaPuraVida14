@@ -653,8 +653,7 @@ async function saveLog() {
       keyholder_queued: log.keyholder_queued||false,
       annulering: log.annulering||false,
       annulering_ts: log.annulering_ts ? new Date(log.annulering_ts).toISOString() : null,
-      annulering_needed: log.annulering_needed||false,
-      updated_by: currentUser.id
+      annulering_needed: log.annulering_needed||false
     }, { onConflict: 'booking_id' });
     if (error) console.error('saveLog fout:', error.message, bid);
   }
@@ -662,7 +661,7 @@ async function saveLog() {
 async function savePrevIds() {
   if (!currentUser) { console.error('savePrevIds: niet ingelogd'); return; }
   const { error } = await sb.from('settings').upsert(
-    { key: 'prevBookingIds', value: JSON.stringify(prevBookingIds), updated_by: currentUser.id },
+    { key: 'prevBookingIds', value: JSON.stringify(prevBookingIds) },
     { onConflict: 'key' }
   );
   if (error) console.error('savePrevIds fout:', error.message);
@@ -678,7 +677,7 @@ async function saveSettings() {
     { key: 'giftThreshold', value: String(settings.giftThreshold) },
     { key: 'daysBefore', value: String(settings.daysBefore) },
   ];
-  for (const r of rows) await sb.from('settings').upsert({ ...r, updated_by: currentUser?.id }, { onConflict: 'key' });
+  for (const r of rows) await sb.from('settings').upsert({ ...r }, { onConflict: 'key' });
   document.getElementById('kh-email-display').textContent = settings.keyholderEmail;
 }
 async function saveBookingField(id, field, value) {
@@ -688,7 +687,7 @@ async function saveBookingField(id, field, value) {
   const col = colMap[field];
   if (!col) { console.error('saveBookingField: onbekend veld', field); return; }
   const { error } = await sb.from('bookings_data').upsert(
-    { booking_id: id, [col]: value, updated_by: currentUser.id, updated_at: new Date().toISOString() },
+    { booking_id: id, [col]: value, updated_at: new Date().toISOString() },
     { onConflict: 'booking_id' }
   );
   if (error) console.error('saveBookingField fout:', error.message, {id, field, value});
@@ -705,7 +704,7 @@ function saveEmail() { /* handled by saveBookingField */ }
 function savePhone() { /* handled by saveBookingField */ }
 async function saveMonthPrices() {
   for (const [m, price] of Object.entries(monthPrices)) {
-    await sb.from('month_prices').upsert({ month: parseInt(m), price, updated_by: currentUser?.id }, { onConflict: 'month' });
+    await sb.from('month_prices').upsert({ month: parseInt(m), price }, { onConflict: 'month' });
   }
 }
 async function clearHistory() {
