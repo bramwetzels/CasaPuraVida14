@@ -641,8 +641,9 @@ async function loadStorage() {
 }
 // ─── SUPABASE SAVE FUNCTIONS ────────────────────────────────────────────────
 async function saveLog() {
+  if (!currentUser) { console.error('saveLog: niet ingelogd'); return; }
   for (const [bid, log] of Object.entries(sentLog)) {
-    await sb.from('sent_log').upsert({
+    const { error } = await sb.from('sent_log').upsert({
       booking_id: bid,
       gast: log.gast||false,
       gast_ts: log.gast_ts ? new Date(log.gast_ts).toISOString() : null,
@@ -653,12 +654,18 @@ async function saveLog() {
       annulering: log.annulering||false,
       annulering_ts: log.annulering_ts ? new Date(log.annulering_ts).toISOString() : null,
       annulering_needed: log.annulering_needed||false,
-      updated_by: currentUser?.id
+      updated_by: currentUser.id
     }, { onConflict: 'booking_id' });
+    if (error) console.error('saveLog fout:', error.message, bid);
   }
 }
 async function savePrevIds() {
-  await sb.from('settings').upsert({ key: 'prevBookingIds', value: JSON.stringify(prevBookingIds), updated_by: currentUser?.id }, { onConflict: 'key' });
+  if (!currentUser) { console.error('savePrevIds: niet ingelogd'); return; }
+  const { error } = await sb.from('settings').upsert(
+    { key: 'prevBookingIds', value: JSON.stringify(prevBookingIds), updated_by: currentUser.id },
+    { onConflict: 'key' }
+  );
+  if (error) console.error('savePrevIds fout:', error.message);
 }
 async function saveSettings() {
   settings.keyholderEmail = document.getElementById('kh-email-input').value;
@@ -675,14 +682,16 @@ async function saveSettings() {
   document.getElementById('kh-email-display').textContent = settings.keyholderEmail;
 }
 async function saveBookingField(id, field, value) {
+  if (!currentUser) { console.error('saveBookingField: niet ingelogd'); return; }
   const colMap = { price:'price', source:'source', adults:'adults', children:'children',
     country:'country', email:'email', phone:'phone', welcome:'welcome_gift', link:'admin_link' };
   const col = colMap[field];
-  if (!col) return;
-  await sb.from('bookings_data').upsert(
-    { booking_id: id, [col]: value, updated_by: currentUser?.id, updated_at: new Date().toISOString() },
+  if (!col) { console.error('saveBookingField: onbekend veld', field); return; }
+  const { error } = await sb.from('bookings_data').upsert(
+    { booking_id: id, [col]: value, updated_by: currentUser.id, updated_at: new Date().toISOString() },
     { onConflict: 'booking_id' }
   );
+  if (error) console.error('saveBookingField fout:', error.message, {id, field, value});
 }
 function savePrices() { /* handled by saveBookingField */ }
 function saveSources() { /* handled by saveBookingField */ }
@@ -826,12 +835,11 @@ function handleCSV(event) {
     const newBookings = processBookings(rows);
     const newIds = newBookings.map(b=>b.id);
     isFirstUpload = prevBookingIds.length === 0;
-    if (!isFirstUpload) await detectChanges(bookings, newBookings);
+    await detectChanges(bookings, newBookings);
     bookings = newBookings;
     prevBookingIds = newIds;
     await savePrevIds();
-    if (isFirstUpload) document.getElementById('first-run-banner').style.display='flex';
-    else document.getElementById('first-run-banner').style.display='none';
+    document.getElementById('first-run-banner').style.display='none';
     render();
     event.target.value = '';
   };
@@ -871,7 +879,7 @@ async function detectChanges(old, newB) {
 function buildWerkvoorraad() {
   const today = new Date();
   const items = [];
-  if (!isFirstUpload) {
+  {
     bookings.forEach(b => {
       const log = sentLog[b.id]||{};
       const daysUntil = b.start ? Math.round((b.start-today)/86400000) : 999;
@@ -1355,7 +1363,7 @@ function renderMetrics() {
     document.getElementById('m-next').textContent = '—';
     document.getElementById('m-next-sub').textContent = '';
   }
-  const werkItems = isFirstUpload ? 0 : buildWerkvoorraad().filter(i=>!sentLog[i.booking.id]?.[i.type==='gast'?'gast':i.type==='keyholder'?'keyholder':'annulering']).length;
+  const werkItems = buildWerkvoorraad().filter(i=>!sentLog[i.booking.id]?.[i.type==='gast'?'gast':i.type==='keyholder'?'keyholder':'annulering']).length;
   document.getElementById('m-werk').textContent = werkItems;
   // Omzet lopend kalenderjaar
   const omzet = bookings.filter(b=>!b.isCancelled&&!b.isEigen&&b.start&&b.start.getFullYear()===thisYear).reduce((s,b)=>s+b.price,0);
