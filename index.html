@@ -243,7 +243,6 @@ tr.cancelled td { opacity: 0.45; }
 .link-input:focus { outline: none; border-color: var(--green); }
 .divider { border: none; border-top: 1px solid var(--border); margin: 16px 0; }
 </style>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 <body>
 
@@ -549,20 +548,7 @@ tr.cancelled td { opacity: 0.45; }
 
 <script>
 // ─── SUPABASE CLIENT ────────────────────────────────────────────────────────
-const { createClient: _createClient } = supabase;
-const sb = _createClient(
-  'https://qbhcrueepyentwsxapqy.supabase.co',
-  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFiaGNydWVlcHllbnR3c3hhcHF5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzkwOTg0OTUsImV4cCI6MjA5NDY3NDQ5NX0.Xbbc9vhxQifGD2kh74HhCQBwRfHE73AzrunAHTpXvhU',
-  {
-    auth: {
-      flowType: 'pkce',
-      autoRefreshToken: true,
-      persistSession: true,
-      detectSessionInUrl: true,
-      storage: window.localStorage
-    }
-  }
-);
+let sb = null;
 let currentUser = null;
 let currentProfile = null;
 
@@ -641,9 +627,8 @@ async function loadStorage() {
 }
 // ─── SUPABASE SAVE FUNCTIONS ────────────────────────────────────────────────
 async function saveLog() {
-  if (!currentUser) { console.error('saveLog: niet ingelogd'); return; }
   for (const [bid, log] of Object.entries(sentLog)) {
-    const { error } = await sb.from('sent_log').upsert({
+    await sb.from('sent_log').upsert({
       booking_id: bid,
       gast: log.gast||false,
       gast_ts: log.gast_ts ? new Date(log.gast_ts).toISOString() : null,
@@ -653,18 +638,13 @@ async function saveLog() {
       keyholder_queued: log.keyholder_queued||false,
       annulering: log.annulering||false,
       annulering_ts: log.annulering_ts ? new Date(log.annulering_ts).toISOString() : null,
-      annulering_needed: log.annulering_needed||false
+      annulering_needed: log.annulering_needed||false,
+      updated_by: currentUser?.id
     }, { onConflict: 'booking_id' });
-    if (error) console.error('saveLog fout:', error.message, bid);
   }
 }
 async function savePrevIds() {
-  if (!currentUser) { console.error('savePrevIds: niet ingelogd'); return; }
-  const { error } = await sb.from('settings').upsert(
-    { key: 'prevBookingIds', value: JSON.stringify(prevBookingIds) },
-    { onConflict: 'key' }
-  );
-  if (error) console.error('savePrevIds fout:', error.message);
+  await sb.from('settings').upsert({ key: 'prevBookingIds', value: JSON.stringify(prevBookingIds), updated_by: currentUser?.id }, { onConflict: 'key' });
 }
 async function saveSettings() {
   settings.keyholderEmail = document.getElementById('kh-email-input').value;
@@ -677,20 +657,18 @@ async function saveSettings() {
     { key: 'giftThreshold', value: String(settings.giftThreshold) },
     { key: 'daysBefore', value: String(settings.daysBefore) },
   ];
-  for (const r of rows) await sb.from('settings').upsert({ ...r }, { onConflict: 'key' });
+  for (const r of rows) await sb.from('settings').upsert({ ...r, updated_by: currentUser?.id }, { onConflict: 'key' });
   document.getElementById('kh-email-display').textContent = settings.keyholderEmail;
 }
 async function saveBookingField(id, field, value) {
-  if (!currentUser) { console.error('saveBookingField: niet ingelogd'); return; }
   const colMap = { price:'price', source:'source', adults:'adults', children:'children',
     country:'country', email:'email', phone:'phone', welcome:'welcome_gift', link:'admin_link' };
   const col = colMap[field];
-  if (!col) { console.error('saveBookingField: onbekend veld', field); return; }
-  const { error } = await sb.from('bookings_data').upsert(
-    { booking_id: id, [col]: value, updated_at: new Date().toISOString() },
+  if (!col) return;
+  await sb.from('bookings_data').upsert(
+    { booking_id: id, [col]: value, updated_by: currentUser?.id, updated_at: new Date().toISOString() },
     { onConflict: 'booking_id' }
   );
-  if (error) console.error('saveBookingField fout:', error.message, {id, field, value});
 }
 function savePrices() { /* handled by saveBookingField */ }
 function saveSources() { /* handled by saveBookingField */ }
@@ -704,7 +682,7 @@ function saveEmail() { /* handled by saveBookingField */ }
 function savePhone() { /* handled by saveBookingField */ }
 async function saveMonthPrices() {
   for (const [m, price] of Object.entries(monthPrices)) {
-    await sb.from('month_prices').upsert({ month: parseInt(m), price }, { onConflict: 'month' });
+    await sb.from('month_prices').upsert({ month: parseInt(m), price, updated_by: currentUser?.id }, { onConflict: 'month' });
   }
 }
 async function clearHistory() {
@@ -829,26 +807,26 @@ function handleCSV(event) {
   const file = event.target.files[0];
   if (!file) return;
   const reader = new FileReader();
-  reader.onload = async e => {
+  reader.onload = e => {
     const rows = parseCSV(e.target.result);
     const newBookings = processBookings(rows);
     const newIds = newBookings.map(b=>b.id);
     isFirstUpload = prevBookingIds.length === 0;
-    await detectChanges(bookings, newBookings);
+    if (!isFirstUpload) detectChanges(bookings, newBookings);
     bookings = newBookings;
     prevBookingIds = newIds;
-    await savePrevIds();
-    document.getElementById('first-run-banner').style.display='none';
+    savePrevIds();
+    if (isFirstUpload) document.getElementById('first-run-banner').style.display='flex';
+    else document.getElementById('first-run-banner').style.display='none';
     render();
     event.target.value = '';
   };
   reader.readAsText(file);
 }
 
-async function detectChanges(old, newB) {
+function detectChanges(old, newB) {
   const today = new Date();
   const threshold = settings.daysBefore;
-  let changed = false;
   newB.forEach(b => {
     if (b.isCancelled) {
       const wasActive = old.find(o=>o.id===b.id && !o.isCancelled);
@@ -856,7 +834,7 @@ async function detectChanges(old, newB) {
         const log = sentLog[b.id]||{};
         if (log.keyholder && !log.annulering) {
           sentLog[b.id] = {...log, annulering_needed: true};
-          changed = true;
+          saveLog();
         }
       }
     }
@@ -866,19 +844,18 @@ async function detectChanges(old, newB) {
         const log = sentLog[b.id]||{};
         if (!log.gast_queued) {
           sentLog[b.id] = {...log, gast_queued: true, keyholder_queued: true};
-          changed = true;
+          saveLog();
         }
       }
     }
   });
-  if (changed) await saveLog();
 }
 
 // ─── WERKVOORRAAD ────────────────────────────────────────────────────────────
 function buildWerkvoorraad() {
   const today = new Date();
   const items = [];
-  {
+  if (!isFirstUpload) {
     bookings.forEach(b => {
       const log = sentLog[b.id]||{};
       const daysUntil = b.start ? Math.round((b.start-today)/86400000) : 999;
@@ -959,6 +936,13 @@ function openDraft(id, type) {
   } else {
     body = buildCancellationDraft(b, sender);
   }
+  const emailBar = (type==='gast' && b.email) ? `
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px;padding:8px 12px;background:var(--gray-50);border:1px solid var(--border);border-radius:8px;">
+      <span style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--text-faint);flex-shrink:0">Aan</span>
+      <span id="draft-email-addr" style="font-size:12px;font-family:var(--mono);color:var(--text);flex:1">${b.email}</span>
+      <button onclick="copyEmailAddr()" style="padding:3px 9px;font-size:11px;border-radius:6px;cursor:pointer;border:1px solid var(--border-strong);background:var(--bg-card);color:var(--text);font-family:var(--font);font-weight:500;flex-shrink:0" title="Kopieer e-mailadres">Kopieer</button>
+    </div>
+  ` : '';
   const linkField = type==='gast' ? `
     <div style="margin-bottom:12px">
       <div class="draft-subject">Link guest admin tool (optioneel)</div>
@@ -967,6 +951,7 @@ function openDraft(id, type) {
   ` : '';
   document.getElementById('panel-body').innerHTML = `
     <div class="panel-section">
+      ${emailBar}
       ${linkField}
       <div class="draft-subject">Onderwerp</div>
       <div class="draft-box" style="margin-bottom:12px;padding:8px 12px;">${getDraftSubject(b,type,lang)}</div>
@@ -1102,6 +1087,15 @@ function copyDraft() {
   navigator.clipboard.writeText(text).then(()=>alert('Gekopieerd naar klembord!'));
 }
 
+function copyEmailAddr() {
+  const addr = document.getElementById('draft-email-addr')?.textContent||'';
+  if (!addr) return;
+  navigator.clipboard.writeText(addr).then(() => {
+    const btn = document.querySelector('[onclick="copyEmailAddr()"]');
+    if (btn) { btn.textContent='✓ Gekopieerd'; setTimeout(()=>{ btn.textContent='Kopieer'; },1500); }
+  });
+}
+
 // ─── DETAIL PANEL (boeking) ──────────────────────────────────────────────────
 function openBookingDetail(id) {
   const b = bookings.find(x=>x.id===id);
@@ -1190,9 +1184,40 @@ function openBookingDetail(id) {
       ${buildCommStatus(b)}
     </div>
   `;
-  document.getElementById('panel-actions').innerHTML = `<button class="btn" onclick="closePanel()">Sluiten</button>`;
+  const vcardBtn = (b.email && b.phone)
+    ? `<button class="btn" onclick="exportVCard('${b.id}')" title="Exporteer als contact">📇 Exporteer contact</button>`
+    : '';
+  document.getElementById('panel-actions').innerHTML = `${vcardBtn}<button class="btn" onclick="closePanel()">Sluiten</button>`;
   panel.classList.add('open');
   overlay.classList.add('open');
+}
+
+function exportVCard(id) {
+  const b = bookings.find(x=>x.id===id);
+  if (!b || !b.email || !b.phone) return;
+  const startStr = fmtDate(b.start);
+  const endStr = fmtDate(b.end);
+  const org = `Casa Pura Vida 14, ${startStr} t/m ${endStr}`;
+  const nameParts = b.name.trim().split(' ');
+  const lastName = nameParts.length > 1 ? nameParts.slice(1).join(' ') : '';
+  const firstName = nameParts[0] || '';
+  const vcf = [
+    'BEGIN:VCARD',
+    'VERSION:3.0',
+    `N:${lastName};${firstName};;;`,
+    `FN:${b.name}`,
+    `ORG:${org}`,
+    `EMAIL;TYPE=INTERNET:${b.email}`,
+    `TEL;TYPE=CELL:${b.phone}`,
+    'END:VCARD'
+  ].join('\r\n');
+  const blob = new Blob([vcf], {type:'text/vcard'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `${b.name.replace(/\s+/g,'_')}.vcf`;
+  a.click();
+  URL.revokeObjectURL(url);
 }
 
 function toDatetimeLocal(ts) {
@@ -1362,7 +1387,7 @@ function renderMetrics() {
     document.getElementById('m-next').textContent = '—';
     document.getElementById('m-next-sub').textContent = '';
   }
-  const werkItems = buildWerkvoorraad().filter(i=>!sentLog[i.booking.id]?.[i.type==='gast'?'gast':i.type==='keyholder'?'keyholder':'annulering']).length;
+  const werkItems = isFirstUpload ? 0 : buildWerkvoorraad().filter(i=>!sentLog[i.booking.id]?.[i.type==='gast'?'gast':i.type==='keyholder'?'keyholder':'annulering']).length;
   document.getElementById('m-werk').textContent = werkItems;
   // Omzet lopend kalenderjaar
   const omzet = bookings.filter(b=>!b.isCancelled&&!b.isEigen&&b.start&&b.start.getFullYear()===thisYear).reduce((s,b)=>s+b.price,0);
@@ -1505,9 +1530,14 @@ async function init() {
     'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFiaGNydWVlcHllbnR3c3hhcHF5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzkwOTg0OTUsImV4cCI6MjA5NDY3NDQ5NX0.Xbbc9vhxQifGD2kh74HhCQBwRfHE73AzrunAHTpXvhU'
   );
 
-  // Alleen uitloggen via onAuthStateChange afhandelen
-  sb.auth.onAuthStateChange((event) => {
-    if (event === 'SIGNED_OUT') {
+  sb.auth.onAuthStateChange(async (event, session) => {
+    if (event === 'SIGNED_IN' && session) {
+      currentUser = session.user;
+      const { data: profile } = await sb.from('profiles').select('*').eq('id', currentUser.id).single();
+      currentProfile = profile;
+      await loadStorage();
+      showApp();
+    } else if (event === 'SIGNED_OUT') {
       currentUser = null;
       currentProfile = null;
       showAuthScreen();
@@ -1519,8 +1549,11 @@ async function init() {
     showAuthScreen();
     return;
   }
+  currentUser = session.user;
+  const { data: profile } = await sb.from('profiles').select('*').eq('id', currentUser.id).single();
+  currentProfile = profile;
 
-  // Sessie bestaat — check of MFA nog vereist is
+  // Check if MFA is required
   const { data: aal } = await sb.auth.mfa.getAuthenticatorAssuranceLevel();
   if (aal?.nextLevel === 'aal2' && aal?.currentLevel !== 'aal2') {
     const { data: factors } = await sb.auth.mfa.listFactors();
@@ -1528,13 +1561,6 @@ async function init() {
     if (totp) { totpFactorId = totp.id; showAuthScreen(); showTotpScreen(); return; }
   }
 
-  await loadUserAndApp(session.user);
-}
-
-async function loadUserAndApp(user) {
-  currentUser = user;
-  const { data: profile } = await sb.from('profiles').select('*').eq('id', user.id).single();
-  currentProfile = profile;
   await loadStorage();
   showApp();
 }
@@ -1571,36 +1597,27 @@ async function handleLogin() {
   const email = document.getElementById('auth-email').value.trim();
   const password = document.getElementById('auth-password').value;
   const errEl = document.getElementById('auth-error');
-  const btn = document.getElementById('auth-btn');
   errEl.textContent = '';
   if (!email || !password) { errEl.textContent = 'Vul e-mail en wachtwoord in.'; return; }
+  const btn = document.getElementById('auth-btn');
   btn.textContent = 'Bezig...'; btn.disabled = true;
   try {
     const { data, error } = await sb.auth.signInWithPassword({ email, password });
     if (error) {
       errEl.textContent = error.message === 'Invalid login credentials'
         ? 'Onjuist e-mailadres of wachtwoord.' : error.message;
-      btn.textContent = 'Inloggen'; btn.disabled = false;
       return;
     }
-    // Login geslaagd — onAuthStateChange handelt de rest af
-    // Controleer of MFA vereist is
+    // Check if MFA required after login
     const { data: aal } = await sb.auth.mfa.getAuthenticatorAssuranceLevel();
     if (aal?.nextLevel === 'aal2' && aal?.currentLevel !== 'aal2') {
       const { data: factors } = await sb.auth.mfa.listFactors();
       const totp = factors?.totp?.[0];
-      if (totp) {
-        totpFactorId = totp.id;
-        showTotpScreen();
-        btn.textContent = 'Inloggen'; btn.disabled = false;
-        return;
-      }
+      if (totp) { totpFactorId = totp.id; showTotpScreen(); return; }
     }
-    // Geen MFA — direct laden
-    await loadUserAndApp(data.user);
   } catch(e) {
-    console.error('Login error:', e);
-    errEl.textContent = 'Fout: ' + (e.message || 'Onbekende fout. Controleer de console.');
+    errEl.textContent = 'Er ging iets mis. Probeer opnieuw.';
+  } finally {
     btn.textContent = 'Inloggen'; btn.disabled = false;
   }
 }
@@ -1608,23 +1625,18 @@ async function handleLogin() {
 async function handleTotpVerify() {
   const code = document.getElementById('totp-code').value.trim();
   const errEl = document.getElementById('totp-error');
-  const btn = document.getElementById('totp-btn');
   errEl.textContent = '';
   if (!code || code.length !== 6) { errEl.textContent = 'Voer een 6-cijferige code in.'; return; }
+  const btn = document.getElementById('totp-btn');
   btn.textContent = 'Verifiëren...'; btn.disabled = true;
   try {
     const { data: challengeData, error: ce } = await sb.auth.mfa.challenge({ factorId: totpFactorId });
-    if (ce) { errEl.textContent = ce.message; btn.textContent = 'Verifiëren'; btn.disabled = false; return; }
-    const { data: verifyData, error: ve } = await sb.auth.mfa.verify({
-      factorId: totpFactorId, challengeId: challengeData.id, code
-    });
-    if (ve) { errEl.textContent = 'Ongeldige code. Probeer opnieuw.'; btn.textContent = 'Verifiëren'; btn.disabled = false; return; }
-    // MFA geslaagd — haal gebruiker op en laad app
-    const { data: { user } } = await sb.auth.getUser();
-    await loadUserAndApp(user);
+    if (ce) { errEl.textContent = ce.message; return; }
+    const { error } = await sb.auth.mfa.verify({ factorId: totpFactorId, challengeId: challengeData.id, code });
+    if (error) { errEl.textContent = 'Ongeldige code. Probeer opnieuw.'; return; }
   } catch(e) {
-    console.error('TOTP error:', e);
-    errEl.textContent = 'Er ging iets mis: ' + (e.message || 'onbekende fout');
+    errEl.textContent = 'Er ging iets mis.';
+  } finally {
     btn.textContent = 'Verifiëren'; btn.disabled = false;
   }
 }
@@ -2054,8 +2066,8 @@ function copyBeschikbaarheid() {
 
 // ─── INIT ─────────────────────────────────────────────────────────────────────
 // Wait for Supabase CDN to load, then init
-// Auto-init
-window.addEventListener('DOMContentLoaded', init);
+window.__cpvInit = function() { init(); };
 </script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2" onload="window.__cpvInit()"></script>
 </body>
 </html>
