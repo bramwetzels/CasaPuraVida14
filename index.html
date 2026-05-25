@@ -1542,40 +1542,68 @@ function setView(v, el) {
 
 
 // ─── AUTH & INIT ─────────────────────────────────────────────────────────────
+let totpFactorId = null;
+
+// Centrale MFA-check: geeft true terug als MFA vereist is (en toont TOTP-scherm)
+async function checkAndHandleMFA() {
+  try {
+    const { data: aal } = await sb.auth.mfa.getAuthenticatorAssuranceLevel();
+    if (aal && aal.nextLevel === 'aal2' && aal.currentLevel !== 'aal2') {
+      const { data: factors } = await sb.auth.mfa.listFactors();
+      const totpList = factors && factors.totp ? factors.totp : [];
+      if (totpList.length > 0) {
+        totpFactorId = totpList[0].id;
+        showTotpScreen();
+        return true;
+      }
+    }
+  } catch(e) {}
+  return false;
+}
+
+// Laad het profiel en open de app
+async function loadAndShowApp(user) {
+  currentUser = user;
+  try {
+    const { data: profile } = await sb.from('profiles').select('*').eq('id', user.id).single();
+    currentProfile = profile;
+  } catch(e) { currentProfile = null; }
+  await loadStorage();
+  showApp();
+}
+
 async function init() {
   sb = supabase.createClient(
     'https://qbhcrueepyentwsxapqy.supabase.co',
     'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFiaGNydWVlcHllbnR3c3hhcHF5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzkwOTg0OTUsImV4cCI6MjA5NDY3NDQ5NX0.Xbbc9vhxQifGD2kh74HhCQBwRfHE73AzrunAHTpXvhU'
   );
 
-  sb.auth.onAuthStateChange(async (event, session) => {
+  // Alleen uitloggen via de listener afhandelen
+  sb.auth.onAuthStateChange((event) => {
     if (event === 'SIGNED_OUT') {
       currentUser = null;
       currentProfile = null;
       showAuthScreen();
     }
-    // SIGNED_IN wordt afgehandeld door handleLogin / init zelf (inclusief MFA-check)
   });
 
-  const { data: { session } } = await sb.auth.getSession();
-  if (!session) {
+  // Check bestaande sessie
+  let session = null;
+  try {
+    const { data } = await sb.auth.getSession();
+    session = data.session;
+  } catch(e) {}
+
+  if (!session || !session.user) {
     showAuthScreen();
     return;
   }
-  currentUser = session.user;
-  const { data: profile } = await sb.from('profiles').select('*').eq('id', currentUser.id).single();
-  currentProfile = profile;
 
-  // Check if MFA is required
-  const { data: aal } = await sb.auth.mfa.getAuthenticatorAssuranceLevel();
-  if (aal?.nextLevel === 'aal2' && aal?.currentLevel !== 'aal2') {
-    const { data: factors } = await sb.auth.mfa.listFactors();
-    const totp = (factors?.totp && factors.totp.length > 0) ? factors.totp[0] : null;
-    if (totp) { totpFactorId = totp.id; showAuthScreen(); showTotpScreen(); return; }
+  // Bestaande sessie: check MFA, anders app tonen
+  const mfaRequired = await checkAndHandleMFA();
+  if (!mfaRequired) {
+    await loadAndShowApp(session.user);
   }
-
-  await loadStorage();
-  showApp();
 }
 
 function showApp() {
@@ -1596,7 +1624,6 @@ function showApp() {
 function showAuthScreen() {
   document.getElementById('auth-screen').style.display = 'flex';
   document.getElementById('app-root').style.display = 'none';
-  // Reset naar inlogformulier (niet TOTP-scherm)
   const authForm = document.getElementById('auth-form');
   const totpForm = document.getElementById('totp-form');
   if (authForm) authForm.style.display = 'block';
@@ -1606,12 +1633,13 @@ function showAuthScreen() {
 }
 
 function showTotpScreen() {
+  document.getElementById('auth-screen').style.display = 'flex';
+  document.getElementById('app-root').style.display = 'none';
   document.getElementById('auth-form').style.display = 'none';
   document.getElementById('totp-form').style.display = 'block';
+  const codeEl = document.getElementById('totp-code');
+  if (codeEl) { codeEl.value = ''; codeEl.focus(); }
 }
-
-let authMode = 'login';
-let totpFactorId = null;
 
 async function handleLogin() {
   const email = document.getElementById('auth-email').value.trim();
@@ -1629,27 +1657,14 @@ async function handleLogin() {
       btn.textContent = 'Inloggen'; btn.disabled = false;
       return;
     }
-    // Check if MFA required after login
-    const { data: aal } = await sb.auth.mfa.getAuthenticatorAssuranceLevel();
-    if (aal?.nextLevel === 'aal2' && aal?.currentLevel !== 'aal2') {
-      const { data: factors } = await sb.auth.mfa.listFactors();
-      const totp = (factors?.totp && factors.totp.length > 0) ? factors.totp[0] : null;
-      if (totp) {
-        totpFactorId = totp.id;
-        btn.textContent = 'Inloggen'; btn.disabled = false;
-        showTotpScreen();
-        return;
-      }
+    // Check MFA
+    const mfaRequired = await checkAndHandleMFA();
+    if (!mfaRequired) {
+      await loadAndShowApp(data.user);
     }
-    // Geen MFA vereist - laad app direct
-    currentUser = data.user;
-    const { data: profile } = await sb.from('profiles').select('*').eq('id', currentUser.id).single();
-    currentProfile = profile;
-    await loadStorage();
-    btn.textContent = 'Inloggen'; btn.disabled = false;
-    showApp();
   } catch(e) {
     errEl.textContent = 'Er ging iets mis. Probeer opnieuw.';
+  } finally {
     btn.textContent = 'Inloggen'; btn.disabled = false;
   }
 }
@@ -1663,9 +1678,12 @@ async function handleTotpVerify() {
   btn.textContent = 'Verifiëren...'; btn.disabled = true;
   try {
     const { data: challengeData, error: ce } = await sb.auth.mfa.challenge({ factorId: totpFactorId });
-    if (ce) { errEl.textContent = ce.message; return; }
-    const { error } = await sb.auth.mfa.verify({ factorId: totpFactorId, challengeId: challengeData.id, code });
-    if (error) { errEl.textContent = 'Ongeldige code. Probeer opnieuw.'; return; }
+    if (ce) { errEl.textContent = ce.message; btn.textContent = 'Verifiëren'; btn.disabled = false; return; }
+    const { error: ve } = await sb.auth.mfa.verify({ factorId: totpFactorId, challengeId: challengeData.id, code });
+    if (ve) { errEl.textContent = 'Ongeldige code. Probeer opnieuw.'; btn.textContent = 'Verifiëren'; btn.disabled = false; return; }
+    // Verificatie geslaagd: haal sessie op en laad app
+    const { data: { session } } = await sb.auth.getSession();
+    await loadAndShowApp(session.user);
   } catch(e) {
     errEl.textContent = 'Er ging iets mis.';
   } finally {
