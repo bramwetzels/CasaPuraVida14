@@ -1631,6 +1631,7 @@ async function handleLogin() {
     if (error) {
       errEl.textContent = error.message === 'Invalid login credentials'
         ? 'Onjuist e-mailadres of wachtwoord.' : error.message;
+      btn.textContent = 'Inloggen'; btn.disabled = false;
       return;
     }
     // Check if MFA required after login
@@ -1638,11 +1639,22 @@ async function handleLogin() {
     if (aal?.nextLevel === 'aal2' && aal?.currentLevel !== 'aal2') {
       const { data: factors } = await sb.auth.mfa.listFactors();
       const totp = factors?.totp?.[0];
-      if (totp) { totpFactorId = totp.id; showTotpScreen(); return; }
+      if (totp) {
+        totpFactorId = totp.id;
+        btn.textContent = 'Inloggen'; btn.disabled = false;
+        showTotpScreen();
+        return;
+      }
     }
+    // Geen MFA vereist - laad app direct
+    currentUser = data.user;
+    const { data: profile } = await sb.from('profiles').select('*').eq('id', currentUser.id).single();
+    currentProfile = profile;
+    await loadStorage();
+    btn.textContent = 'Inloggen'; btn.disabled = false;
+    showApp();
   } catch(e) {
     errEl.textContent = 'Er ging iets mis. Probeer opnieuw.';
-  } finally {
     btn.textContent = 'Inloggen'; btn.disabled = false;
   }
 }
