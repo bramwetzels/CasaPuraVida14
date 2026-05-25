@@ -1628,7 +1628,6 @@ async function handleLogin() {
   btn.textContent = 'Bezig...'; btn.disabled = true;
   try {
     const { data, error } = await sb.auth.signInWithPassword({ email, password });
-    console.log('CPV login result:', { data, error });
     if (error) {
       errEl.textContent = error.message === 'Invalid login credentials'
         ? 'Onjuist e-mailadres of wachtwoord.' : error.message;
@@ -1637,11 +1636,9 @@ async function handleLogin() {
     }
     // Check if MFA required after login
     const { data: aal } = await sb.auth.mfa.getAuthenticatorAssuranceLevel();
-    console.log('CPV aal:', aal);
     if (aal?.nextLevel === 'aal2' && aal?.currentLevel !== 'aal2') {
       const { data: factors } = await sb.auth.mfa.listFactors();
-      console.log('CPV factors:', factors);
-      const totp = factors?.totp?.[0];
+      const totp = (factors?.totp && factors.totp.length > 0) ? factors.totp[0] : null;
       if (totp) {
         totpFactorId = totp.id;
         btn.textContent = 'Inloggen'; btn.disabled = false;
@@ -1650,13 +1647,10 @@ async function handleLogin() {
       }
     }
     // Geen MFA vereist - laad app direct
-    console.log('CPV: geen MFA, laad app direct');
     currentUser = data.user;
     const { data: profile } = await sb.from('profiles').select('*').eq('id', currentUser.id).single();
-    console.log('CPV profile:', profile);
     currentProfile = profile;
     await loadStorage();
-    console.log('CPV: loadStorage klaar, showApp aanroepen');
     btn.textContent = 'Inloggen'; btn.disabled = false;
     showApp();
   } catch(e) {
