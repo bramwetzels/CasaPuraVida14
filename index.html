@@ -1549,17 +1549,12 @@ async function init() {
   );
 
   sb.auth.onAuthStateChange(async (event, session) => {
-    if (event === 'SIGNED_IN' && session) {
-      currentUser = session.user;
-      const { data: profile } = await sb.from('profiles').select('*').eq('id', currentUser.id).single();
-      currentProfile = profile;
-      await loadStorage();
-      showApp();
-    } else if (event === 'SIGNED_OUT') {
+    if (event === 'SIGNED_OUT') {
       currentUser = null;
       currentProfile = null;
       showAuthScreen();
     }
+    // SIGNED_IN wordt afgehandeld door handleLogin / init zelf (inclusief MFA-check)
   });
 
   const { data: { session } } = await sb.auth.getSession();
@@ -1575,7 +1570,7 @@ async function init() {
   const { data: aal } = await sb.auth.mfa.getAuthenticatorAssuranceLevel();
   if (aal?.nextLevel === 'aal2' && aal?.currentLevel !== 'aal2') {
     const { data: factors } = await sb.auth.mfa.listFactors();
-    const totp = factors?.totp?.[0];
+    const totp = (factors?.totp && factors.totp.length > 0) ? factors.totp[0] : null;
     if (totp) { totpFactorId = totp.id; showAuthScreen(); showTotpScreen(); return; }
   }
 
