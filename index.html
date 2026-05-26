@@ -938,6 +938,28 @@ function openDraft(id, type) {
   } else {
     body = buildCancellationDraft(b, sender);
   }
+  // Telefoonnummer splitsen in landcode en nummer
+  let dialCode = '', localPhone = '';
+  if (b.phone) {
+    const m = b.phone.trim().match(/^(\+\d{1,3})\s*(.*)$/);
+    if (m) { dialCode = m[1]; localPhone = m[2]; }
+    else { localPhone = b.phone; }
+  }
+
+  const copyBtnStyle = `padding:2px 8px;font-size:10px;border-radius:5px;cursor:pointer;border:1px solid var(--border-strong);background:var(--bg-card);color:var(--text);font-family:var(--font);font-weight:500;flex-shrink:0;margin-left:6px;`;
+  const infoBlock = type==='gast' ? `
+    <div style="margin-bottom:14px;padding:12px 14px;background:var(--gray-50);border:1px solid var(--border);border-radius:10px;display:grid;grid-template-columns:1fr 1fr;gap:8px 16px;">
+      <div><span style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--text-faint);display:block">Aankomst</span><span style="font-size:12px;color:var(--text)">${fmtDate(b.start)}</span></div>
+      <div><span style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--text-faint);display:block">Vertrek</span><span style="font-size:12px;color:var(--text)">${fmtDate(b.end)}</span></div>
+      <div><span style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--text-faint);display:block">Boeker</span><div style="display:flex;align-items:center;margin-top:1px">${b.name ? `<span style="font-size:12px;color:var(--text);flex:1">${b.name}</span><button style="${copyBtnStyle}" onclick="copyInfoField(this,'${(b.name||'').replace(/'/g,'\\x27')}')">Kopieer</button>` : `<span style="font-size:12px;color:var(--text)">—</span>`}</div></div>
+      <div><span style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--text-faint);display:block">Land van herkomst</span><span style="font-size:12px;color:var(--text)">${b.country||'—'}</span></div>
+      <div><span style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--text-faint);display:block">E-mailadres</span><div style="display:flex;align-items:center;margin-top:1px">${b.email ? `<span style="font-size:12px;font-family:var(--mono);color:var(--text);flex:1;word-break:break-all">${b.email}</span><button style="${copyBtnStyle}" onclick="copyInfoField(this,'${(b.email||'').replace(/'/g,'\\x27')}')">Kopieer</button>` : `<span style="font-size:12px;color:var(--text)">—</span>`}</div></div>
+      <div><span style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--text-faint);display:block">Telefoonnummer</span><div style="display:flex;align-items:center;margin-top:1px">${localPhone ? `<span style="font-size:12px;font-family:var(--mono);color:var(--text);flex:1">${dialCode ? `<span style="color:var(--text-muted)">${dialCode}</span> ` : ''}${localPhone}</span><button style="${copyBtnStyle}" onclick="copyInfoField(this,'${localPhone.replace(/'/g,'\\x27')}')">Kopieer</button>` : `<span style="font-size:12px;color:var(--text)">—</span>`}</div></div>
+      <div><span style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--text-faint);display:block">Volwassenen</span><span style="font-size:12px;color:var(--text)">${b.adults!==''&&b.adults!==undefined?b.adults:'—'}</span></div>
+      <div><span style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--text-faint);display:block">Kinderen</span><span style="font-size:12px;color:var(--text)">${b.children!==undefined&&b.children!==''?b.children:'—'}</span></div>
+    </div>
+  ` : '';
+
   const emailBar = (type==='gast' && b.email) ? `
     <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px;padding:8px 12px;background:var(--gray-50);border:1px solid var(--border);border-radius:8px;">
       <span style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--text-faint);flex-shrink:0">Aan</span>
@@ -953,6 +975,7 @@ function openDraft(id, type) {
   ` : '';
   document.getElementById('panel-body').innerHTML = `
     <div class="panel-section">
+      ${infoBlock}
       ${emailBar}
       ${linkField}
       <div class="draft-subject">Onderwerp</div>
@@ -1087,6 +1110,14 @@ function buildCancellationDraft(b, sender) {
 function copyDraft() {
   const text = document.getElementById('draft-content')?.textContent||'';
   navigator.clipboard.writeText(text).then(()=>alert('Gekopieerd naar klembord!'));
+}
+
+function copyInfoField(btn, text) {
+  navigator.clipboard.writeText(text).then(() => {
+    const orig = btn.textContent;
+    btn.textContent = '✓';
+    setTimeout(() => { btn.textContent = orig; }, 1500);
+  });
 }
 
 function copyEmailAddr() {
