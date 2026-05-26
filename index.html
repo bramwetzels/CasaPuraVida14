@@ -630,7 +630,7 @@ async function loadStorage() {
 // ─── SUPABASE SAVE FUNCTIONS ────────────────────────────────────────────────
 async function saveLog() {
   for (const [bid, log] of Object.entries(sentLog)) {
-    await sb.from('sent_log').upsert({
+    const payload = {
       booking_id: bid,
       gast: log.gast||false,
       gast_ts: log.gast_ts ? new Date(log.gast_ts).toISOString() : null,
@@ -642,7 +642,14 @@ async function saveLog() {
       annulering_ts: log.annulering_ts ? new Date(log.annulering_ts).toISOString() : null,
       annulering_needed: log.annulering_needed||false,
       updated_by: currentUser?.id
-    }, { onConflict: 'booking_id' });
+    };
+    let { error } = await sb.from('sent_log').upsert(payload, { onConflict: 'booking_id' });
+    if (error) {
+      const ok = await refreshSessionIfNeeded();
+      if (!ok) return;
+      payload.updated_by = currentUser?.id;
+      await sb.from('sent_log').upsert(payload, { onConflict: 'booking_id' });
+    }
   }
 }
 async function savePrevIds() {
@@ -913,25 +920,49 @@ function renderWerkvoorraad(container) {
   }).join('');
 }
 
+async function refreshSessionIfNeeded() {
+  try {
+    const { data, error } = await sb.auth.refreshSession();
+    if (error || !data.session) {
+      currentUser = null; currentProfile = null;
+      showAuthScreen();
+      return false;
+    }
+    currentUser = data.session.user;
+    return true;
+  } catch(e) {
+    currentUser = null; currentProfile = null;
+    showAuthScreen();
+    return false;
+  }
+}
+
 async function markSent(id, key) {
   if (!sentLog[id]) sentLog[id] = {};
   sentLog[id][key] = true;
   sentLog[id][key+'_ts'] = Date.now();
-  try {
-    await sb.from('sent_log').upsert({
-      booking_id: id,
-      gast: sentLog[id].gast||false,
-      gast_ts: sentLog[id].gast_ts ? new Date(sentLog[id].gast_ts).toISOString() : null,
-      gast_queued: sentLog[id].gast_queued||false,
-      keyholder: sentLog[id].keyholder||false,
-      keyholder_ts: sentLog[id].keyholder_ts ? new Date(sentLog[id].keyholder_ts).toISOString() : null,
-      keyholder_queued: sentLog[id].keyholder_queued||false,
-      annulering: sentLog[id].annulering||false,
-      annulering_ts: sentLog[id].annulering_ts ? new Date(sentLog[id].annulering_ts).toISOString() : null,
-      annulering_needed: sentLog[id].annulering_needed||false,
-      updated_by: currentUser?.id
-    }, { onConflict: 'booking_id' });
-  } catch(e) { console.error('markSent save error:', e); }
+  const payload = {
+    booking_id: id,
+    gast: sentLog[id].gast||false,
+    gast_ts: sentLog[id].gast_ts ? new Date(sentLog[id].gast_ts).toISOString() : null,
+    gast_queued: sentLog[id].gast_queued||false,
+    keyholder: sentLog[id].keyholder||false,
+    keyholder_ts: sentLog[id].keyholder_ts ? new Date(sentLog[id].keyholder_ts).toISOString() : null,
+    keyholder_queued: sentLog[id].keyholder_queued||false,
+    annulering: sentLog[id].annulering||false,
+    annulering_ts: sentLog[id].annulering_ts ? new Date(sentLog[id].annulering_ts).toISOString() : null,
+    annulering_needed: sentLog[id].annulering_needed||false,
+    updated_by: currentUser?.id
+  };
+  let { error } = await sb.from('sent_log').upsert(payload, { onConflict: 'booking_id' });
+  if (error) {
+    // Sessie vernieuwen en opnieuw proberen
+    const ok = await refreshSessionIfNeeded();
+    if (!ok) return;
+    payload.updated_by = currentUser?.id;
+    const res2 = await sb.from('sent_log').upsert(payload, { onConflict: 'booking_id' });
+    if (res2.error) { alert('Opslaan mislukt: ' + res2.error.message); return; }
+  }
   render();
 }
 
