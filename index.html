@@ -914,8 +914,24 @@ function renderWerkvoorraad(container) {
 }
 
 async function markSent(id, key) {
-  sentLog[id] = {...(sentLog[id]||{}), [key]: true, [key+'_ts']: Date.now()};
-  await saveLog();
+  if (!sentLog[id]) sentLog[id] = {};
+  sentLog[id][key] = true;
+  sentLog[id][key+'_ts'] = Date.now();
+  try {
+    await sb.from('sent_log').upsert({
+      booking_id: id,
+      gast: sentLog[id].gast||false,
+      gast_ts: sentLog[id].gast_ts ? new Date(sentLog[id].gast_ts).toISOString() : null,
+      gast_queued: sentLog[id].gast_queued||false,
+      keyholder: sentLog[id].keyholder||false,
+      keyholder_ts: sentLog[id].keyholder_ts ? new Date(sentLog[id].keyholder_ts).toISOString() : null,
+      keyholder_queued: sentLog[id].keyholder_queued||false,
+      annulering: sentLog[id].annulering||false,
+      annulering_ts: sentLog[id].annulering_ts ? new Date(sentLog[id].annulering_ts).toISOString() : null,
+      annulering_needed: sentLog[id].annulering_needed||false,
+      updated_by: currentUser?.id
+    }, { onConflict: 'booking_id' });
+  } catch(e) { console.error('markSent save error:', e); }
   render();
 }
 
@@ -938,12 +954,16 @@ function openDraft(id, type) {
   } else {
     body = buildCancellationDraft(b, sender);
   }
-  // Telefoonnummer splitsen in landcode en nummer
+  // Telefoonnummer splitsen in landcode en nummer via vaste lijst
+  const DIAL_CODES = ['+1268','+1284','+1340','+1345','+1441','+1473','+1649','+1664','+1670','+1671','+1684','+1721','+1758','+1767','+1784','+1787','+1809','+1868','+1869','+1876','+1939','+239','+240','+241','+242','+243','+244','+245','+246','+247','+248','+249','+250','+251','+252','+253','+254','+255','+256','+257','+258','+260','+261','+262','+263','+264','+265','+266','+267','+268','+269','+27','+290','+291','+297','+298','+299','+30','+31','+32','+33','+34','+350','+351','+352','+353','+354','+355','+356','+357','+358','+359','+36','+370','+371','+372','+373','+374','+375','+376','+377','+378','+380','+381','+382','+385','+386','+387','+389','+39','+40','+41','+420','+421','+423','+43','+44','+45','+46','+47','+48','+49','+500','+501','+502','+503','+504','+505','+506','+507','+508','+509','+51','+52','+53','+54','+55','+56','+57','+58','+590','+591','+592','+593','+594','+595','+596','+597','+598','+599','+60','+61','+62','+63','+64','+65','+66','+670','+672','+673','+674','+675','+676','+677','+678','+679','+680','+681','+682','+683','+685','+686','+687','+688','+689','+690','+691','+692','+7','+81','+82','+84','+850','+852','+853','+855','+856','+86','+880','+886','+90','+91','+92','+93','+94','+95','+960','+961','+962','+963','+964','+965','+966','+967','+968','+970','+971','+972','+973','+974','+975','+976','+977','+98','+992','+993','+994','+995','+996','+998','+1'];
   let dialCode = '', localPhone = '';
   if (b.phone) {
-    const m = b.phone.trim().match(/^(\+\d{1,3})\s*(.*)$/);
-    if (m) { dialCode = m[1]; localPhone = m[2]; }
-    else { localPhone = b.phone; }
+    const raw = b.phone.trim();
+    if (raw.startsWith('+')) {
+      const match = DIAL_CODES.find(dc => raw.startsWith(dc));
+      if (match) { dialCode = match; localPhone = raw.slice(match.length).trim(); }
+      else { localPhone = raw; }
+    } else { localPhone = raw; }
   }
 
   const copyBtnStyle = `padding:2px 8px;font-size:10px;border-radius:5px;cursor:pointer;border:1px solid var(--border-strong);background:var(--bg-card);color:var(--text);font-family:var(--font);font-weight:500;flex-shrink:0;margin-left:6px;`;
@@ -986,7 +1006,7 @@ function openDraft(id, type) {
   `;
   document.getElementById('panel-actions').innerHTML = `
     <button class="btn btn-primary" onclick="copyDraft()">Kopieer bericht</button>
-    <button class="btn" onclick="markSent('${id}','${type==='gast'?'gast':type==='keyholder'?'keyholder':'annulering'}');closePanel()">Markeer als verzonden</button>
+    <button class="btn" onclick="markSent('${id}','${type==='gast'?'gast':type==='keyholder'?'keyholder':'annulering'}').then(()=>closePanel())">Markeer als verzonden</button>
     <button class="btn" onclick="closePanel()">Sluiten</button>
   `;
   panel.classList.add('open');
