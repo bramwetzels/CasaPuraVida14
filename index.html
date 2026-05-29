@@ -371,7 +371,6 @@ tr.cancelled td { opacity: 0.45; }
           </div>
           <div class="tab-actions">
             <div class="filter-chips" id="filter-chips"></div>
-            <button id="past-toggle-btn" class="btn" style="font-size:11px;padding:5px 10px;" onclick="togglePast()">Toon verleden</button>
             <div class="view-toggle">
               <button class="view-btn active" onclick="setView('tabel',this)">Tabel</button>
               <button class="view-btn" onclick="setView('kalender',this)">Kalender</button>
@@ -560,7 +559,6 @@ let settings = { keyholderEmail: 'info@vettschoon.com', senderName: 'Bram', gift
 let isFirstUpload = false;
 let prevBookingIds = [];
 let currentFilter = 'alle';
-let showPast = false;
 let currentView = 'tabel';
 let calMonth = new Date().getMonth();
 let calYear = new Date().getFullYear();
@@ -630,7 +628,7 @@ async function loadStorage() {
 // ─── SUPABASE SAVE FUNCTIONS ────────────────────────────────────────────────
 async function saveLog() {
   for (const [bid, log] of Object.entries(sentLog)) {
-    const payload = {
+    await sb.from('sent_log').upsert({
       booking_id: bid,
       gast: log.gast||false,
       gast_ts: log.gast_ts ? new Date(log.gast_ts).toISOString() : null,
@@ -642,14 +640,7 @@ async function saveLog() {
       annulering_ts: log.annulering_ts ? new Date(log.annulering_ts).toISOString() : null,
       annulering_needed: log.annulering_needed||false,
       updated_by: currentUser?.id
-    };
-    let { error } = await sb.from('sent_log').upsert(payload, { onConflict: 'booking_id' });
-    if (error) {
-      const ok = await refreshSessionIfNeeded();
-      if (!ok) return;
-      payload.updated_by = currentUser?.id;
-      await sb.from('sent_log').upsert(payload, { onConflict: 'booking_id' });
-    }
+    }, { onConflict: 'booking_id' });
   }
 }
 async function savePrevIds() {
@@ -691,7 +682,7 @@ function saveEmail() { /* handled by saveBookingField */ }
 function savePhone() { /* handled by saveBookingField */ }
 async function saveMonthPrices() {
   for (const [m, price] of Object.entries(monthPrices)) {
-    await sb.from('month_prices').upsert({ month: parseInt(m), price, updated_by: currentUser?.id }, { onConflict: 'month' });
+    await sb.from('month_prices').upsert({ month: parseInt(m), price }, { onConflict: 'month' });
   }
 }
 async function clearHistory() {
@@ -784,7 +775,7 @@ function processBookings(rows) {
     const end = parseDate(r.booking_end);
     const created = parseDate(r.booking_create);
     const nights = nightsBetween(start, end);
-    const price = editedPrices[id] !== undefined ? editedPrices[id] : parsePrice(r.price_rent);
+    const price = editedPrices[id] !== undefined ? editedPrices[id] : Math.max(0, parsePrice(r.price_rent) - parsePrice(r.price_discount));
     const service = parsePrice(r.price_services);
     const total = parsePrice(r.price_booking);
     const paid = parsePrice(r.payment_recieved);
@@ -920,49 +911,9 @@ function renderWerkvoorraad(container) {
   }).join('');
 }
 
-async function refreshSessionIfNeeded() {
-  try {
-    const { data, error } = await sb.auth.refreshSession();
-    if (error || !data.session) {
-      currentUser = null; currentProfile = null;
-      showAuthScreen();
-      return false;
-    }
-    currentUser = data.session.user;
-    return true;
-  } catch(e) {
-    currentUser = null; currentProfile = null;
-    showAuthScreen();
-    return false;
-  }
-}
-
 async function markSent(id, key) {
-  if (!sentLog[id]) sentLog[id] = {};
-  sentLog[id][key] = true;
-  sentLog[id][key+'_ts'] = Date.now();
-  const payload = {
-    booking_id: id,
-    gast: sentLog[id].gast||false,
-    gast_ts: sentLog[id].gast_ts ? new Date(sentLog[id].gast_ts).toISOString() : null,
-    gast_queued: sentLog[id].gast_queued||false,
-    keyholder: sentLog[id].keyholder||false,
-    keyholder_ts: sentLog[id].keyholder_ts ? new Date(sentLog[id].keyholder_ts).toISOString() : null,
-    keyholder_queued: sentLog[id].keyholder_queued||false,
-    annulering: sentLog[id].annulering||false,
-    annulering_ts: sentLog[id].annulering_ts ? new Date(sentLog[id].annulering_ts).toISOString() : null,
-    annulering_needed: sentLog[id].annulering_needed||false,
-    updated_by: currentUser?.id
-  };
-  let { error } = await sb.from('sent_log').upsert(payload, { onConflict: 'booking_id' });
-  if (error) {
-    // Sessie vernieuwen en opnieuw proberen
-    const ok = await refreshSessionIfNeeded();
-    if (!ok) return;
-    payload.updated_by = currentUser?.id;
-    const res2 = await sb.from('sent_log').upsert(payload, { onConflict: 'booking_id' });
-    if (res2.error) { alert('Opslaan mislukt: ' + res2.error.message); return; }
-  }
+  sentLog[id] = {...(sentLog[id]||{}), [key]: true, [key+'_ts']: Date.now()};
+  await saveLog();
   render();
 }
 
@@ -985,39 +936,6 @@ function openDraft(id, type) {
   } else {
     body = buildCancellationDraft(b, sender);
   }
-  // Telefoonnummer splitsen in landcode en nummer via vaste lijst
-  const DIAL_CODES = ['+1268','+1284','+1340','+1345','+1441','+1473','+1649','+1664','+1670','+1671','+1684','+1721','+1758','+1767','+1784','+1787','+1809','+1868','+1869','+1876','+1939','+239','+240','+241','+242','+243','+244','+245','+246','+247','+248','+249','+250','+251','+252','+253','+254','+255','+256','+257','+258','+260','+261','+262','+263','+264','+265','+266','+267','+268','+269','+27','+290','+291','+297','+298','+299','+30','+31','+32','+33','+34','+350','+351','+352','+353','+354','+355','+356','+357','+358','+359','+36','+370','+371','+372','+373','+374','+375','+376','+377','+378','+380','+381','+382','+385','+386','+387','+389','+39','+40','+41','+420','+421','+423','+43','+44','+45','+46','+47','+48','+49','+500','+501','+502','+503','+504','+505','+506','+507','+508','+509','+51','+52','+53','+54','+55','+56','+57','+58','+590','+591','+592','+593','+594','+595','+596','+597','+598','+599','+60','+61','+62','+63','+64','+65','+66','+670','+672','+673','+674','+675','+676','+677','+678','+679','+680','+681','+682','+683','+685','+686','+687','+688','+689','+690','+691','+692','+7','+81','+82','+84','+850','+852','+853','+855','+856','+86','+880','+886','+90','+91','+92','+93','+94','+95','+960','+961','+962','+963','+964','+965','+966','+967','+968','+970','+971','+972','+973','+974','+975','+976','+977','+98','+992','+993','+994','+995','+996','+998','+1'];
-  let dialCode = '', localPhone = '';
-  if (b.phone) {
-    const raw = b.phone.trim();
-    if (raw.startsWith('+')) {
-      const match = DIAL_CODES.find(dc => raw.startsWith(dc));
-      if (match) { dialCode = match; localPhone = raw.slice(match.length).trim(); }
-      else { localPhone = raw; }
-    } else { localPhone = raw; }
-  }
-
-  const copyBtnStyle = `padding:2px 8px;font-size:10px;border-radius:5px;cursor:pointer;border:1px solid var(--border-strong);background:var(--bg-card);color:var(--text);font-family:var(--font);font-weight:500;flex-shrink:0;margin-left:6px;`;
-  const infoBlock = type==='gast' ? `
-    <div style="margin-bottom:14px;padding:12px 14px;background:var(--gray-50);border:1px solid var(--border);border-radius:10px;display:grid;grid-template-columns:1fr 1fr;gap:8px 16px;">
-      <div><span style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--text-faint);display:block">Aankomst</span><span style="font-size:12px;color:var(--text)">${fmtDate(b.start)}</span></div>
-      <div><span style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--text-faint);display:block">Vertrek</span><span style="font-size:12px;color:var(--text)">${fmtDate(b.end)}</span></div>
-      <div><span style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--text-faint);display:block">Boeker</span><div style="display:flex;align-items:center;margin-top:1px">${b.name ? `<span style="font-size:12px;color:var(--text);flex:1">${b.name}</span><button style="${copyBtnStyle}" onclick="copyInfoField(this,'${(b.name||'').replace(/'/g,'\\x27')}')">Kopieer</button>` : `<span style="font-size:12px;color:var(--text)">—</span>`}</div></div>
-      <div><span style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--text-faint);display:block">Land van herkomst</span><span style="font-size:12px;color:var(--text)">${b.country||'—'}</span></div>
-      <div><span style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--text-faint);display:block">E-mailadres</span><div style="display:flex;align-items:center;margin-top:1px">${b.email ? `<span style="font-size:12px;font-family:var(--mono);color:var(--text);flex:1;word-break:break-all">${b.email}</span><button style="${copyBtnStyle}" onclick="copyInfoField(this,'${(b.email||'').replace(/'/g,'\\x27')}')">Kopieer</button>` : `<span style="font-size:12px;color:var(--text)">—</span>`}</div></div>
-      <div><span style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--text-faint);display:block">Telefoonnummer</span><div style="display:flex;align-items:center;margin-top:1px">${localPhone ? `<span style="font-size:12px;font-family:var(--mono);color:var(--text);flex:1">${dialCode ? `<span style="color:var(--text-muted)">${dialCode}</span> ` : ''}${localPhone}</span><button style="${copyBtnStyle}" onclick="copyInfoField(this,'${localPhone.replace(/'/g,'\\x27')}')">Kopieer</button>` : `<span style="font-size:12px;color:var(--text)">—</span>`}</div></div>
-      <div><span style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--text-faint);display:block">Volwassenen</span><span style="font-size:12px;color:var(--text)">${b.adults!==''&&b.adults!==undefined?b.adults:'—'}</span></div>
-      <div><span style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--text-faint);display:block">Kinderen</span><span style="font-size:12px;color:var(--text)">${b.children!==undefined&&b.children!==''?b.children:'—'}</span></div>
-    </div>
-  ` : '';
-
-  const emailBar = (type==='gast' && b.email) ? `
-    <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px;padding:8px 12px;background:var(--gray-50);border:1px solid var(--border);border-radius:8px;">
-      <span style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--text-faint);flex-shrink:0">Aan</span>
-      <span id="draft-email-addr" style="font-size:12px;font-family:var(--mono);color:var(--text);flex:1">${b.email}</span>
-      <button onclick="copyEmailAddr()" style="padding:3px 9px;font-size:11px;border-radius:6px;cursor:pointer;border:1px solid var(--border-strong);background:var(--bg-card);color:var(--text);font-family:var(--font);font-weight:500;flex-shrink:0" title="Kopieer e-mailadres">Kopieer</button>
-    </div>
-  ` : '';
   const linkField = type==='gast' ? `
     <div style="margin-bottom:12px">
       <div class="draft-subject">Link guest admin tool (optioneel)</div>
@@ -1026,8 +944,6 @@ function openDraft(id, type) {
   ` : '';
   document.getElementById('panel-body').innerHTML = `
     <div class="panel-section">
-      ${infoBlock}
-      ${emailBar}
       ${linkField}
       <div class="draft-subject">Onderwerp</div>
       <div class="draft-box" style="margin-bottom:12px;padding:8px 12px;">${getDraftSubject(b,type,lang)}</div>
@@ -1037,7 +953,7 @@ function openDraft(id, type) {
   `;
   document.getElementById('panel-actions').innerHTML = `
     <button class="btn btn-primary" onclick="copyDraft()">Kopieer bericht</button>
-    <button class="btn" onclick="markSent('${id}','${type==='gast'?'gast':type==='keyholder'?'keyholder':'annulering'}').then(()=>closePanel())">Markeer als verzonden</button>
+    <button class="btn" onclick="markSent('${id}','${type==='gast'?'gast':type==='keyholder'?'keyholder':'annulering'}');closePanel()">Markeer als verzonden</button>
     <button class="btn" onclick="closePanel()">Sluiten</button>
   `;
   panel.classList.add('open');
@@ -1125,18 +1041,18 @@ function buildGuestDraft(b, lang, sender, link) {
   const guestSite = 'https://guests.casapuravida14.com';
   const greet = (b.name&&b.name!=='—') ? b.name.split(' ')[0] : '';
   const drafts = {
-    nl: `Beste${greet?' '+greet:''},\n\nWij verheugen ons erop u te mogen verwelkomen bij Casa Pura Vida 14 op ${fmtDate(b.start)}!\n\nOp onze gastenpagina vindt u alle informatie over uw verblijf:\n${guestSite}${getLinkBlock('nl')}Heeft u een specifiek aankomsttijdstip, een wens of een vraag? Neem gerust contact op.`,
-    en: `Dear${greet?' '+greet:''},\n\nWe are looking forward to welcoming you to Casa Pura Vida 14 on ${fmtDate(b.start)}!\n\nYou can find all information about your stay on our guest page:\n${guestSite}${getLinkBlock('en')}If you have a specific arrival time, a request or a question, please don't hesitate to get in touch.`,
-    de: `Liebe${greet?' '+greet:''},\n\nWir freuen uns, Sie am ${fmtDate(b.start)} bei Casa Pura Vida 14 begrüßen zu dürfen!\n\nAlle Informationen zu Ihrem Aufenthalt finden Sie auf unserer Gastseite:\n${guestSite}${getLinkBlock('de')}Bei Fragen oder besonderen Wünschen stehen wir Ihnen gerne zur Verfügung.`,
-    fr: `Cher${greet?' '+greet:''},\n\nNous sommes ravis de vous accueillir à Casa Pura Vida 14 le ${fmtDate(b.start)} !\n\nRetrouvez toutes les informations sur votre séjour sur notre page dédiée aux voyageurs :\n${guestSite}${getLinkBlock('fr')}N'hésitez pas à nous contacter si vous avez des questions ou des souhaits particuliers.`,
-    es: `Estimado/a${greet?' '+greet:''},\n\n¡Nos complace darle la bienvenida a Casa Pura Vida 14 el ${fmtDate(b.start)}!\n\nEncuentre toda la información sobre su estancia en nuestra página para huéspedes:\n${guestSite}${getLinkBlock('es')}Si tiene alguna pregunta o deseo especial, no dude en ponerse en contacto con nosotros.`,
-    sv: `Hej${greet?' '+greet:''},\n\nVi ser fram emot att välkomna er till Casa Pura Vida 14 den ${fmtDate(b.start)}!\n\nAll information om er vistelse hittar ni på vår gästsida:\n${guestSite}${getLinkBlock('sv')}Har ni önskemål om ankomsttid eller andra frågor? Hör gärna av er!`,
-    no: `Hei${greet?' '+greet:''},\n\nVi gleder oss til å ønske dere velkommen til Casa Pura Vida 14 den ${fmtDate(b.start)}!\n\nAll informasjon om oppholdet finner dere på vår gjesteside:\n${guestSite}${getLinkBlock('no')}Har dere spørsmål eller ønsker? Ta gjerne kontakt!`,
-    da: `Kære${greet?' '+greet:''},\n\nVi ser frem til at byde jer velkommen til Casa Pura Vida 14 den ${fmtDate(b.start)}!\n\nAl information om jeres ophold finder I på vores gæsteside:\n${guestSite}${getLinkBlock('da')}Hvis I har spørgsmål eller ønsker, er I meget velkomne til at kontakte os.`,
-    it: `Gentile${greet?' '+greet:''},\n\nSiamo lieti di darvi il benvenuto a Casa Pura Vida 14 il ${fmtDate(b.start)}!\n\nTutte le informazioni sul vostro soggiorno le trovate sulla nostra pagina per gli ospiti:\n${guestSite}${getLinkBlock('it')}Per qualsiasi domanda o richiesta, non esitate a contattarci.`,
-    pl: `Drogi/a${greet?' '+greet:''},\n\nZ przyjemnością przywitamy Państwa w Casa Pura Vida 14 w dniu ${fmtDate(b.start)}!\n\nWszelkie informacje o pobycie znajdą Państwo na naszej stronie dla gości:\n${guestSite}${getLinkBlock('pl')}W razie pytań lub życzeń prosimy o kontakt.`,
-    sk: `Vážený/á${greet?' '+greet:''},\n\nTešíme sa na privítanie vo Casa Pura Vida 14 dňa ${fmtDate(b.start)}!\n\nVšetky informácie o vašom pobyte nájdete na našej stránke pre hostí:\n${guestSite}${getLinkBlock('sk')}Ak máte otázky alebo priania, neváhajte nás kontaktovať.`,
-    sl: `Spoštovani${greet?' '+greet:''},\n\nVeselimo se, da vas pozdravimo v Casa Pura Vida 14 dne ${fmtDate(b.start)}!\n\nVse informacije o vašem bivanju najdete na naši strani za goste:\n${guestSite}${getLinkBlock('sl')}Če imate kakšna vprašanja ali posebne želje, nas prosim kontaktirajte.`,
+    nl: `Beste${greet?' '+greet:''},\n\nWij verheugen ons erop u te mogen verwelkomen bij Casa Pura Vida 14 op ${fmtDate(b.start)}!\n\nOp onze gastenpagina vindt u alle informatie over uw verblijf:\n${guestSite}${getLinkBlock('nl')}Heeft u een specifiek aankomsttijdstip, een wens of een vraag? Neem gerust contact op.\n\nHartelijke groeten,\n${sender}\nCasa Pura Vida 14`,
+    en: `Dear${greet?' '+greet:''},\n\nWe are looking forward to welcoming you to Casa Pura Vida 14 on ${fmtDate(b.start)}!\n\nYou can find all information about your stay on our guest page:\n${guestSite}${getLinkBlock('en')}If you have a specific arrival time, a request or a question, please don't hesitate to get in touch.\n\nKind regards,\n${sender}\nCasa Pura Vida 14`,
+    de: `Liebe${greet?' '+greet:''},\n\nWir freuen uns, Sie am ${fmtDate(b.start)} bei Casa Pura Vida 14 begrüßen zu dürfen!\n\nAlle Informationen zu Ihrem Aufenthalt finden Sie auf unserer Gastseite:\n${guestSite}${getLinkBlock('de')}Bei Fragen oder besonderen Wünschen stehen wir Ihnen gerne zur Verfügung.\n\nHerzliche Grüße,\n${sender}\nCasa Pura Vida 14`,
+    fr: `Cher${greet?' '+greet:''},\n\nNous sommes ravis de vous accueillir à Casa Pura Vida 14 le ${fmtDate(b.start)} !\n\nRetrouvez toutes les informations sur votre séjour sur notre page dédiée aux voyageurs :\n${guestSite}${getLinkBlock('fr')}N'hésitez pas à nous contacter si vous avez des questions ou des souhaits particuliers.\n\nCordialement,\n${sender}\nCasa Pura Vida 14`,
+    es: `Estimado/a${greet?' '+greet:''},\n\n¡Nos complace darle la bienvenida a Casa Pura Vida 14 el ${fmtDate(b.start)}!\n\nEncuentre toda la información sobre su estancia en nuestra página para huéspedes:\n${guestSite}${getLinkBlock('es')}Si tiene alguna pregunta o deseo especial, no dude en ponerse en contacto con nosotros.\n\nUn cordial saludo,\n${sender}\nCasa Pura Vida 14`,
+    sv: `Hej${greet?' '+greet:''},\n\nVi ser fram emot att välkomna er till Casa Pura Vida 14 den ${fmtDate(b.start)}!\n\nAll information om er vistelse hittar ni på vår gästsida:\n${guestSite}${getLinkBlock('sv')}Har ni önskemål om ankomsttid eller andra frågor? Hör gärna av er!\n\nHjärtliga hälsningar,\n${sender}\nCasa Pura Vida 14`,
+    no: `Hei${greet?' '+greet:''},\n\nVi gleder oss til å ønske dere velkommen til Casa Pura Vida 14 den ${fmtDate(b.start)}!\n\nAll informasjon om oppholdet finner dere på vår gjesteside:\n${guestSite}${getLinkBlock('no')}Har dere spørsmål eller ønsker? Ta gjerne kontakt!\n\nMed vennlig hilsen,\n${sender}\nCasa Pura Vida 14`,
+    da: `Kære${greet?' '+greet:''},\n\nVi ser frem til at byde jer velkommen til Casa Pura Vida 14 den ${fmtDate(b.start)}!\n\nAl information om jeres ophold finder I på vores gæsteside:\n${guestSite}${getLinkBlock('da')}Hvis I har spørgsmål eller ønsker, er I meget velkomne til at kontakte os.\n\nVenlig hilsen,\n${sender}\nCasa Pura Vida 14`,
+    it: `Gentile${greet?' '+greet:''},\n\nSiamo lieti di darvi il benvenuto a Casa Pura Vida 14 il ${fmtDate(b.start)}!\n\nTutte le informazioni sul vostro soggiorno le trovate sulla nostra pagina per gli ospiti:\n${guestSite}${getLinkBlock('it')}Per qualsiasi domanda o richiesta, non esitate a contattarci.\n\nCordiali saluti,\n${sender}\nCasa Pura Vida 14`,
+    pl: `Drogi/a${greet?' '+greet:''},\n\nZ przyjemnością przywitamy Państwa w Casa Pura Vida 14 w dniu ${fmtDate(b.start)}!\n\nWszelkie informacje o pobycie znajdą Państwo na naszej stronie dla gości:\n${guestSite}${getLinkBlock('pl')}W razie pytań lub życzeń prosimy o kontakt.\n\nZ poważaniem,\n${sender}\nCasa Pura Vida 14`,
+    sk: `Vážený/á${greet?' '+greet:''},\n\nTešíme sa na privítanie vo Casa Pura Vida 14 dňa ${fmtDate(b.start)}!\n\nVšetky informácie o vašom pobyte nájdete na našej stránke pre hostí:\n${guestSite}${getLinkBlock('sk')}Ak máte otázky alebo priania, neváhajte nás kontaktovať.\n\nSrdečné pozdravy,\n${sender}\nCasa Pura Vida 14`,
+    sl: `Spoštovani${greet?' '+greet:''},\n\nVeselimo se, da vas pozdravimo v Casa Pura Vida 14 dne ${fmtDate(b.start)}!\n\nVse informacije o vašem bivanju najdete na naši strani za goste:\n${guestSite}${getLinkBlock('sl')}Če imate kakšna vprašanja ali posebne želje, nas prosim kontaktirajte.\n\nLep pozdrav,\n${sender}\nCasa Pura Vida 14`,
   };
   return drafts[lang]||drafts['en'];
 }
@@ -1161,23 +1077,6 @@ function buildCancellationDraft(b, sender) {
 function copyDraft() {
   const text = document.getElementById('draft-content')?.textContent||'';
   navigator.clipboard.writeText(text).then(()=>alert('Gekopieerd naar klembord!'));
-}
-
-function copyInfoField(btn, text) {
-  navigator.clipboard.writeText(text).then(() => {
-    const orig = btn.textContent;
-    btn.textContent = '✓';
-    setTimeout(() => { btn.textContent = orig; }, 1500);
-  });
-}
-
-function copyEmailAddr() {
-  const addr = document.getElementById('draft-email-addr')?.textContent||'';
-  if (!addr) return;
-  navigator.clipboard.writeText(addr).then(() => {
-    const btn = document.querySelector('[onclick="copyEmailAddr()"]');
-    if (btn) { btn.textContent='✓ Gekopieerd'; setTimeout(()=>{ btn.textContent='Kopieer'; },1500); }
-  });
 }
 
 // ─── DETAIL PANEL (boeking) ──────────────────────────────────────────────────
@@ -1268,40 +1167,9 @@ function openBookingDetail(id) {
       ${buildCommStatus(b)}
     </div>
   `;
-  const vcardBtn = (b.email && b.phone)
-    ? `<button class="btn" onclick="exportVCard('${b.id}')" title="Exporteer als contact">📇 Exporteer contact</button>`
-    : '';
-  document.getElementById('panel-actions').innerHTML = `${vcardBtn}<button class="btn" onclick="closePanel()">Sluiten</button>`;
+  document.getElementById('panel-actions').innerHTML = `<button class="btn" onclick="closePanel()">Sluiten</button>`;
   panel.classList.add('open');
   overlay.classList.add('open');
-}
-
-function exportVCard(id) {
-  const b = bookings.find(x=>x.id===id);
-  if (!b || !b.email || !b.phone) return;
-  const startStr = fmtDate(b.start);
-  const endStr = fmtDate(b.end);
-  const org = `Casa Pura Vida 14, ${startStr} t/m ${endStr}`;
-  const nameParts = b.name.trim().split(' ');
-  const lastName = nameParts.length > 1 ? nameParts.slice(1).join(' ') : '';
-  const firstName = nameParts[0] || '';
-  const vcf = [
-    'BEGIN:VCARD',
-    'VERSION:3.0',
-    `N:${lastName};${firstName};;;`,
-    `FN:${b.name}`,
-    `ORG:${org}`,
-    `EMAIL;TYPE=INTERNET:${b.email}`,
-    `TEL;TYPE=CELL:${b.phone}`,
-    'END:VCARD'
-  ].join('\r\n');
-  const blob = new Blob([vcf], {type:'text/vcard'});
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = `${b.name.replace(/\s+/g,'_')}.vcf`;
-  a.click();
-  URL.revokeObjectURL(url);
 }
 
 function toDatetimeLocal(ts) {
@@ -1482,16 +1350,11 @@ function renderTable() {
   const tbody = document.getElementById('bookings-body');
   if (!tbody) return;
   const today = new Date();
-  today.setHours(0,0,0,0);
   let filtered = bookings;
-  // Standaard: verberg afgesloten boekingen (checkout < vandaag), tenzij showPast aan staat
-  if (!showPast) {
-    filtered = filtered.filter(b => !b.end || b.end >= today);
-  }
-  if (currentFilter==='bevestigd') filtered = filtered.filter(b=>!b.isCancelled&&!b.isEigen&&(b.status||'').toLowerCase().includes('bevestigd'));
-  if (currentFilter==='optie') filtered = filtered.filter(b=>!b.isCancelled&&!b.isEigen&&(b.status||'').toLowerCase().includes('voorlopig'));
-  if (currentFilter==='geannuleerd') filtered = filtered.filter(b=>b.isCancelled);
-  if (currentFilter==='eigen') filtered = filtered.filter(b=>b.isEigen);
+  if (currentFilter==='bevestigd') filtered = bookings.filter(b=>!b.isCancelled&&!b.isEigen&&(b.status||'').toLowerCase().includes('bevestigd'));
+  if (currentFilter==='optie') filtered = bookings.filter(b=>!b.isCancelled&&!b.isEigen&&(b.status||'').toLowerCase().includes('voorlopig'));
+  if (currentFilter==='geannuleerd') filtered = bookings.filter(b=>b.isCancelled);
+  if (currentFilter==='eigen') filtered = bookings.filter(b=>b.isEigen);
   tbody.innerHTML = filtered.map(b => {
     const log = sentLog[b.id]||{};
     const daysUntil = b.start ? Math.round((b.start-today)/86400000) : 999;
@@ -1593,17 +1456,6 @@ function showPage(page) {
   if (page==='gebruikers') loadUsers();
 }
 
-function togglePast() {
-  showPast = !showPast;
-  const btn = document.getElementById('past-toggle-btn');
-  if (btn) {
-    btn.textContent = showPast ? 'Verberg verleden' : 'Toon verleden';
-    btn.style.background = showPast ? 'var(--gray-200)' : '';
-    btn.style.fontWeight = showPast ? '600' : '';
-  }
-  renderTable();
-}
-
 function setFilter(f, el) {
   currentFilter = f;
   document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
@@ -1624,68 +1476,45 @@ function setView(v, el) {
 
 
 // ─── AUTH & INIT ─────────────────────────────────────────────────────────────
-let totpFactorId = null;
-
-// Centrale MFA-check: geeft true terug als MFA vereist is (en toont TOTP-scherm)
-async function checkAndHandleMFA() {
-  try {
-    const { data: aal } = await sb.auth.mfa.getAuthenticatorAssuranceLevel();
-    if (aal && aal.nextLevel === 'aal2' && aal.currentLevel !== 'aal2') {
-      const { data: factors } = await sb.auth.mfa.listFactors();
-      const totpList = factors && factors.totp ? factors.totp : [];
-      if (totpList.length > 0) {
-        totpFactorId = totpList[0].id;
-        showTotpScreen();
-        return true;
-      }
-    }
-  } catch(e) {}
-  return false;
-}
-
-// Laad het profiel en open de app
-async function loadAndShowApp(user) {
-  currentUser = user;
-  try {
-    const { data: profile } = await sb.from('profiles').select('*').eq('id', user.id).single();
-    currentProfile = profile;
-  } catch(e) { currentProfile = null; }
-  await loadStorage();
-  showApp();
-}
-
 async function init() {
   sb = supabase.createClient(
     'https://qbhcrueepyentwsxapqy.supabase.co',
     'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFiaGNydWVlcHllbnR3c3hhcHF5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzkwOTg0OTUsImV4cCI6MjA5NDY3NDQ5NX0.Xbbc9vhxQifGD2kh74HhCQBwRfHE73AzrunAHTpXvhU'
   );
 
-  // Alleen uitloggen via de listener afhandelen
-  sb.auth.onAuthStateChange((event) => {
-    if (event === 'SIGNED_OUT') {
+  sb.auth.onAuthStateChange(async (event, session) => {
+    if (event === 'SIGNED_IN' && session) {
+      currentUser = session.user;
+      const { data: profile } = await sb.from('profiles').select('*').eq('id', currentUser.id).single();
+      currentProfile = profile;
+      await loadStorage();
+      showApp();
+    } else if (event === 'SIGNED_OUT') {
       currentUser = null;
       currentProfile = null;
       showAuthScreen();
     }
   });
 
-  // Check bestaande sessie
-  let session = null;
-  try {
-    const { data } = await sb.auth.getSession();
-    session = data.session;
-  } catch(e) {}
-
-  if (!session || !session.user) {
+  const { data: { session } } = await sb.auth.getSession();
+  if (!session) {
     showAuthScreen();
     return;
   }
+  currentUser = session.user;
+  const { data: profile } = await sb.from('profiles').select('*').eq('id', currentUser.id).single();
+  currentProfile = profile;
 
-  // Bestaande sessie: check MFA, anders app tonen
-  const mfaRequired = await checkAndHandleMFA();
-  if (!mfaRequired) {
-    await loadAndShowApp(session.user);
+  // Check if MFA is required
+  const { data: aal } = await sb.auth.mfa.getAuthenticatorAssuranceLevel();
+  if (aal?.nextLevel === 'aal2' && aal?.currentLevel !== 'aal2') {
+    const { data: factors } = await sb.auth.mfa.listFactors();
+    const totp = factors?.totp?.[0];
+    if (totp) { totpFactorId = totp.id; showAuthScreen(); showTotpScreen(); return; }
   }
+
+  await loadStorage();
+  showApp();
 }
 
 function showApp() {
@@ -1706,22 +1535,15 @@ function showApp() {
 function showAuthScreen() {
   document.getElementById('auth-screen').style.display = 'flex';
   document.getElementById('app-root').style.display = 'none';
-  const authForm = document.getElementById('auth-form');
-  const totpForm = document.getElementById('totp-form');
-  if (authForm) authForm.style.display = 'block';
-  if (totpForm) totpForm.style.display = 'none';
-  const errEl = document.getElementById('auth-error');
-  if (errEl) errEl.textContent = '';
 }
 
 function showTotpScreen() {
-  document.getElementById('auth-screen').style.display = 'flex';
-  document.getElementById('app-root').style.display = 'none';
   document.getElementById('auth-form').style.display = 'none';
   document.getElementById('totp-form').style.display = 'block';
-  const codeEl = document.getElementById('totp-code');
-  if (codeEl) { codeEl.value = ''; codeEl.focus(); }
 }
+
+let authMode = 'login';
+let totpFactorId = null;
 
 async function handleLogin() {
   const email = document.getElementById('auth-email').value.trim();
@@ -1736,13 +1558,14 @@ async function handleLogin() {
     if (error) {
       errEl.textContent = error.message === 'Invalid login credentials'
         ? 'Onjuist e-mailadres of wachtwoord.' : error.message;
-      btn.textContent = 'Inloggen'; btn.disabled = false;
       return;
     }
-    // Check MFA
-    const mfaRequired = await checkAndHandleMFA();
-    if (!mfaRequired) {
-      await loadAndShowApp(data.user);
+    // Check if MFA required after login
+    const { data: aal } = await sb.auth.mfa.getAuthenticatorAssuranceLevel();
+    if (aal?.nextLevel === 'aal2' && aal?.currentLevel !== 'aal2') {
+      const { data: factors } = await sb.auth.mfa.listFactors();
+      const totp = factors?.totp?.[0];
+      if (totp) { totpFactorId = totp.id; showTotpScreen(); return; }
     }
   } catch(e) {
     errEl.textContent = 'Er ging iets mis. Probeer opnieuw.';
@@ -1760,12 +1583,9 @@ async function handleTotpVerify() {
   btn.textContent = 'Verifiëren...'; btn.disabled = true;
   try {
     const { data: challengeData, error: ce } = await sb.auth.mfa.challenge({ factorId: totpFactorId });
-    if (ce) { errEl.textContent = ce.message; btn.textContent = 'Verifiëren'; btn.disabled = false; return; }
-    const { error: ve } = await sb.auth.mfa.verify({ factorId: totpFactorId, challengeId: challengeData.id, code });
-    if (ve) { errEl.textContent = 'Ongeldige code. Probeer opnieuw.'; btn.textContent = 'Verifiëren'; btn.disabled = false; return; }
-    // Verificatie geslaagd: haal sessie op en laad app
-    const { data: { session } } = await sb.auth.getSession();
-    await loadAndShowApp(session.user);
+    if (ce) { errEl.textContent = ce.message; return; }
+    const { error } = await sb.auth.mfa.verify({ factorId: totpFactorId, challengeId: challengeData.id, code });
+    if (error) { errEl.textContent = 'Ongeldige code. Probeer opnieuw.'; return; }
   } catch(e) {
     errEl.textContent = 'Er ging iets mis.';
   } finally {
@@ -1774,10 +1594,7 @@ async function handleTotpVerify() {
 }
 
 async function handleLogout() {
-  try { await sb.auth.signOut(); } catch(e) {}
-  currentUser = null;
-  currentProfile = null;
-  showAuthScreen();
+  await sb.auth.signOut();
 }
 
 async function loadUsers() {
@@ -1852,15 +1669,6 @@ let monthPrices = {1:0,2:0,3:0,4:0,5:0,6:0,7:0,8:0,9:0,10:0,11:0,12:0};
 const MONTH_NAMES = ['jan','feb','mrt','apr','mei','jun','jul','aug','sep','okt','nov','dec'];
 const MONTH_NAMES_LONG = ['januari','februari','maart','april','mei','juni','juli','augustus','september','oktober','november','december'];
 
-function loadMonthPrices() {
-  try {
-    const mp = localStorage.getItem('cpv_monthprices');
-    if (mp) monthPrices = JSON.parse(mp);
-  } catch(e) {}
-}
-function saveMonthPrices() {
-  try { localStorage.setItem('cpv_monthprices', JSON.stringify(monthPrices)); } catch(e) {}
-}
 
 function initMonthPricesGrid() {
   const grid = document.getElementById('month-prices-grid');
