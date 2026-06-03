@@ -1593,6 +1593,14 @@ async function checkAuth() {
   const needsMfa = aal?.nextLevel === 'aal2' && aal?.currentLevel !== 'aal2';
 
   if (needsMfa) {
+    // If called from init (app not yet loaded), discard the stale session
+    // so the user always goes through email + password first
+    if (!appLoaded) {
+      await sb.auth.signOut();
+      showLoginScreen();
+      return;
+    }
+    // Called after a fresh login — show TOTP screen
     const { data: factors } = await sb.auth.mfa.listFactors();
     const totp = factors?.totp?.[0];
     if (totp) {
@@ -1601,7 +1609,6 @@ async function checkAuth() {
       showTotpScreen();
       return;
     }
-    // No TOTP factor enrolled — fall through to app (shouldn't happen in prod)
   }
 
   // Auth complete — load and show app
