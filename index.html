@@ -307,6 +307,10 @@ tr.cancelled td { opacity: 0.45; }
         <svg viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="6.5" stroke="currentColor" stroke-width="1.3"/><path d="M8 4v4l3 2" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>
         Beschikbaarheid
       </div>
+      <div class="nav-item" onclick="showPage('bezetting')">
+        <svg viewBox="0 0 16 16" fill="none"><rect x="1" y="10" width="3" height="5" rx="1" fill="currentColor"/><rect x="6" y="6" width="3" height="9" rx="1" fill="currentColor" opacity=".7"/><rect x="11" y="2" width="3" height="13" rx="1" fill="currentColor" opacity=".4"/></svg>
+        Bezetting
+      </div>
       <div class="nav-item" onclick="showPage('instellingen')">
         <svg viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="2" stroke="currentColor" stroke-width="1.3"/><path d="M8 1v2M8 13v2M1 8h2M13 8h2M3.05 3.05l1.41 1.41M11.54 11.54l1.41 1.41M3.05 12.95l1.41-1.41M11.54 4.46l1.41-1.41" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>
         Instellingen
@@ -349,6 +353,30 @@ tr.cancelled td { opacity: 0.45; }
         <div class="metric-card"><div class="metric-label">Eerstvolgende aankomst</div><div class="metric-value" id="m-next" style="font-size:16px;padding-top:4px">—</div><div class="metric-sub" id="m-next-sub">—</div></div>
         <div class="metric-card alert"><div class="metric-label">Werkvoorraad</div><div class="metric-value" id="m-werk">—</div><div class="metric-sub">acties openstaand</div></div>
         <div class="metric-card"><div class="metric-label">Omzet (bevestigd)</div><div class="metric-value" id="m-omzet" style="font-size:18px;padding-top:4px">—</div><div class="metric-sub">huurprijs lopend kalenderjaar</div></div>
+      </div>
+      <div id="bezetting-overzicht-card" class="section" style="margin-bottom:20px;display:none">
+        <div class="section-header" style="cursor:pointer" onclick="toggleBezettingMonths()">
+          <div class="section-title" id="bezetting-card-title">Bezetting lopend jaar</div>
+          <div style="display:flex;align-items:center;gap:12px">
+            <div id="bezetting-card-pct" style="font-size:20px;font-weight:700;color:var(--green)">—</div>
+            <svg id="bezetting-chevron" viewBox="0 0 16 16" fill="none" width="14" height="14" style="transition:transform .2s;color:var(--text-faint)"><path d="M4 6l4 4 4-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </div>
+        </div>
+        <div id="bezetting-bar-wrap" style="padding:14px 18px 16px">
+          <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">
+            <div style="flex:1;height:10px;background:var(--gray-100);border-radius:99px;overflow:hidden">
+              <div id="bezetting-bar" style="height:100%;background:var(--green);border-radius:99px;transition:width .4s"></div>
+            </div>
+            <div id="bezetting-nights-label" style="font-size:12px;color:var(--text-muted);white-space:nowrap">— / — nachten</div>
+          </div>
+          <div style="display:flex;gap:16px;font-size:11px;color:var(--text-faint)">
+            <span style="display:flex;align-items:center;gap:4px"><span style="width:8px;height:8px;border-radius:2px;background:var(--green);display:inline-block"></span>Bezet</span>
+            <span style="display:flex;align-items:center;gap:4px"><span style="width:8px;height:8px;border-radius:2px;background:var(--gray-100);display:inline-block"></span>Beschikbaar</span>
+          </div>
+        </div>
+        <div id="bezetting-months-wrap" style="display:none;border-top:1px solid var(--border);padding:16px 18px">
+          <div id="bezetting-months-grid" style="display:grid;grid-template-columns:repeat(6,1fr);gap:10px"></div>
+        </div>
       </div>
       <div id="no-data-state" class="upload-area" onclick="document.getElementById('csv-input').click()">
         <div style="font-size:32px;margin-bottom:10px">📂</div>
@@ -526,6 +554,34 @@ tr.cancelled td { opacity: 0.45; }
 
       <div id="avail-empty" style="display:none" class="empty-state" style="padding:40px;text-align:center;color:var(--text-faint)">
         Geen beschikbare periodes gevonden met ≥ <span id="avail-empty-min"></span> nachten in de geselecteerde periode.
+      </div>
+    </div>
+
+    <!-- PAGE: BEZETTING -->
+    <div id="page-bezetting" style="display:none" class="content">
+      <div class="section" style="margin-bottom:20px">
+        <div class="section-header">
+          <div class="section-title">Bezetting per jaar</div>
+          <div style="display:flex;align-items:center;gap:8px">
+            <button class="btn" onclick="bezettingPrevYear()">&#8592; Vorig</button>
+            <span id="bezetting-year-label" style="font-size:13px;font-weight:600;min-width:40px;text-align:center"></span>
+            <button class="btn" onclick="bezettingNextYear()">Volgend &#8594;</button>
+          </div>
+        </div>
+        <div style="padding:18px">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+            <div style="font-size:12px;font-weight:600;color:var(--text-muted)">Jaarbezetting</div>
+            <div style="display:flex;align-items:baseline;gap:10px">
+              <span id="bz-year-nights" style="font-size:12px;color:var(--text-muted)">—</span>
+              <span id="bz-year-pct" style="font-size:22px;font-weight:700;color:var(--green)">—</span>
+            </div>
+          </div>
+          <div style="height:12px;background:var(--gray-100);border-radius:99px;overflow:hidden;margin-bottom:20px">
+            <div id="bz-year-bar" style="height:100%;background:var(--green);border-radius:99px;transition:width .4s;width:0%"></div>
+          </div>
+          <div style="font-size:11px;font-weight:600;color:var(--text-faint);text-transform:uppercase;letter-spacing:.04em;margin-bottom:10px">Per maand</div>
+          <div id="bz-month-grid" style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px"></div>
+        </div>
       </div>
     </div>
 
@@ -1300,6 +1356,7 @@ function render() {
   renderTable();
   renderWerkItems();
   updateBadges();
+  renderBezettingOverzicht();
   if (currentView==='kalender') renderCalendar();
   const hasData = bookings.length > 0;
   document.getElementById('no-data-state').style.display = hasData ? 'none' : 'block';
@@ -1443,17 +1500,18 @@ function calNext() { calMonth++; if(calMonth>11){calMonth=0;calYear++;} renderCa
 
 // ─── NAVIGATION ──────────────────────────────────────────────────────────────
 function showPage(page) {
-  ['overzicht','boekingen','werkvoorraad','beschikbaarheid','gebruikers','instellingen'].forEach(p => {
+  ['overzicht','boekingen','werkvoorraad','beschikbaarheid','bezetting','gebruikers','instellingen'].forEach(p => {
     const el = document.getElementById('page-'+p);
     if (el) el.style.display = p===page ? (p==='boekingen'?'flex':'block') : 'none';
   });
   document.querySelectorAll('.nav-item').forEach((el,i)=>{
-    const pages=['overzicht','boekingen','werkvoorraad','beschikbaarheid','gebruikers','instellingen'];
+    const pages=['overzicht','boekingen','werkvoorraad','beschikbaarheid','bezetting','gebruikers','instellingen'];
     el.classList.toggle('active', pages[i]===page);
   });
-  document.getElementById('page-title').textContent = {overzicht:'Overzicht',boekingen:'Boekingen',werkvoorraad:'Werkvoorraad',beschikbaarheid:'Beschikbaarheid',gebruikers:'Beheerders',instellingen:'Instellingen'}[page];
+  document.getElementById('page-title').textContent = {overzicht:'Overzicht',boekingen:'Boekingen',werkvoorraad:'Werkvoorraad',beschikbaarheid:'Beschikbaarheid',bezetting:'Bezetting',gebruikers:'Beheerders',instellingen:'Instellingen'}[page]||page;
   if (page==='boekingen'&&currentView==='kalender') renderCalendar();
   if (page==='gebruikers') loadUsers();
+  if (page==='bezetting') renderBezettingPage();
 }
 
 function setFilter(f, el) {
@@ -2006,6 +2064,125 @@ function copyBeschikbaarheid() {
     navigator.clipboard.writeText(plain).then(() => alert('Gekopieerd als platte tekst (HTML niet ondersteund in deze browser)'));
   });
 }
+
+
+// ─── BEZETTING ───────────────────────────────────────────────────────────────
+let bezettingYear = new Date().getFullYear();
+
+function calcBezetting(year) {
+  const isLeap = (year % 4 === 0 && year % 100 !== 0) || year % 400 === 0;
+  const totalNights = isLeap ? 366 : 365;
+  // Collect all booked nights for this year (excl. cancelled)
+  const yearStart = new Date(year, 0, 1);
+  const yearEnd = new Date(year + 1, 0, 1);
+  // Use a Set of date-strings to avoid double-counting overlapping bookings
+  const bookedDays = new Set();
+  bookings.filter(b => !b.isCancelled && b.start && b.end).forEach(b => {
+    const s = b.start < yearStart ? yearStart : b.start;
+    const e = b.end > yearEnd ? yearEnd : b.end;
+    const cur = new Date(s);
+    while (cur < e) {
+      bookedDays.add(cur.toISOString().slice(0, 10));
+      cur.setDate(cur.getDate() + 1);
+    }
+  });
+  const bookedNights = bookedDays.size;
+  return { bookedNights, totalNights, pct: totalNights > 0 ? bookedNights / totalNights : 0 };
+}
+
+function calcBezettingPerMonth(year) {
+  return Array.from({length: 12}, (_, mi) => {
+    const mStart = new Date(year, mi, 1);
+    const mEnd = new Date(year, mi + 1, 1);
+    const daysInMonth = (mEnd - mStart) / 86400000;
+    const bookedDays = new Set();
+    bookings.filter(b => !b.isCancelled && b.start && b.end).forEach(b => {
+      const s = b.start < mStart ? mStart : b.start;
+      const e = b.end > mEnd ? mEnd : b.end;
+      const cur = new Date(s);
+      while (cur < e) {
+        bookedDays.add(cur.toISOString().slice(0, 10));
+        cur.setDate(cur.getDate() + 1);
+      }
+    });
+    return { month: mi, daysInMonth, bookedNights: bookedDays.size };
+  });
+}
+
+function renderBezettingOverzicht() {
+  const card = document.getElementById('bezetting-overzicht-card');
+  if (!card || bookings.length === 0) { if (card) card.style.display = 'none'; return; }
+  card.style.display = 'block';
+  const year = new Date().getFullYear();
+  const { bookedNights, totalNights, pct } = calcBezetting(year);
+  document.getElementById('bezetting-card-title').textContent = `Bezetting ${year}`;
+  document.getElementById('bezetting-card-pct').textContent = Math.round(pct * 100) + '%';
+  document.getElementById('bezetting-bar').style.width = (pct * 100) + '%';
+  document.getElementById('bezetting-nights-label').textContent = `${bookedNights} / ${totalNights} nachten`;
+  if (bezettingMonthsOpen) renderBezettingOverzichtMonths();
+}
+
+let bezettingMonthsOpen = false;
+function toggleBezettingMonths() {
+  bezettingMonthsOpen = !bezettingMonthsOpen;
+  document.getElementById('bezetting-months-wrap').style.display = bezettingMonthsOpen ? 'block' : 'none';
+  const chevron = document.getElementById('bezetting-chevron');
+  if (chevron) chevron.style.transform = bezettingMonthsOpen ? 'rotate(180deg)' : 'rotate(0deg)';
+  if (bezettingMonthsOpen) renderBezettingOverzichtMonths();
+}
+
+function renderBezettingOverzichtMonths() {
+  const grid = document.getElementById('bezetting-months-grid');
+  if (!grid) return;
+  const year = new Date().getFullYear();
+  const months = calcBezettingPerMonth(year);
+  const MAANDEN = ['jan','feb','mrt','apr','mei','jun','jul','aug','sep','okt','nov','dec'];
+  grid.innerHTML = months.map(({month, daysInMonth, bookedNights}) => {
+    const pct = daysInMonth > 0 ? bookedNights / daysInMonth : 0;
+    const pctRnd = Math.round(pct * 100);
+    const color = pct >= 0.8 ? 'var(--green-dark)' : pct >= 0.5 ? 'var(--green)' : pct > 0 ? 'var(--amber)' : 'var(--gray-300)';
+    return `<div style="background:var(--gray-50);border-radius:8px;padding:10px 12px">
+      <div style="font-size:10px;font-weight:600;color:var(--text-faint);text-transform:uppercase;letter-spacing:.04em;margin-bottom:6px">${MAANDEN[month]}</div>
+      <div style="height:6px;background:var(--gray-200);border-radius:99px;overflow:hidden;margin-bottom:5px">
+        <div style="height:100%;background:${color};border-radius:99px;width:${pct*100}%;transition:width .3s"></div>
+      </div>
+      <div style="display:flex;justify-content:space-between;font-size:11px">
+        <span style="color:var(--text-muted)">${bookedNights}/${daysInMonth}n</span>
+        <span style="font-weight:600;color:${color}">${pctRnd}%</span>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function renderBezettingPage() {
+  const year = bezettingYear;
+  document.getElementById('bezetting-year-label').textContent = year;
+  const { bookedNights, totalNights, pct } = calcBezetting(year);
+  document.getElementById('bz-year-pct').textContent = Math.round(pct * 100) + '%';
+  document.getElementById('bz-year-nights').textContent = `${bookedNights} / ${totalNights} nachten bezet`;
+  document.getElementById('bz-year-bar').style.width = (pct * 100) + '%';
+
+  const grid = document.getElementById('bz-month-grid');
+  const months = calcBezettingPerMonth(year);
+  const MAANDEN_LANG = ['Januari','Februari','Maart','April','Mei','Juni','Juli','Augustus','September','Oktober','November','December'];
+  grid.innerHTML = months.map(({month, daysInMonth, bookedNights: bn}) => {
+    const p = daysInMonth > 0 ? bn / daysInMonth : 0;
+    const color = p >= 0.8 ? 'var(--green-dark)' : p >= 0.5 ? 'var(--green)' : p > 0 ? 'var(--amber)' : 'var(--gray-300)';
+    return `<div style="background:var(--gray-50);border-radius:10px;padding:14px 16px">
+      <div style="font-size:12px;font-weight:600;color:var(--text);margin-bottom:8px">${MAANDEN_LANG[month]}</div>
+      <div style="height:8px;background:var(--gray-200);border-radius:99px;overflow:hidden;margin-bottom:8px">
+        <div style="height:100%;background:${color};border-radius:99px;width:${p*100}%;transition:width .3s"></div>
+      </div>
+      <div style="display:flex;justify-content:space-between;align-items:baseline">
+        <span style="font-size:11px;color:var(--text-muted)">${bn} / ${daysInMonth} nachten</span>
+        <span style="font-size:16px;font-weight:700;color:${color}">${Math.round(p*100)}%</span>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function bezettingPrevYear() { bezettingYear--; renderBezettingPage(); }
+function bezettingNextYear() { bezettingYear++; renderBezettingPage(); }
 
 // ─── INIT ─────────────────────────────────────────────────────────────────────
 // Wait for Supabase CDN to load, then init
