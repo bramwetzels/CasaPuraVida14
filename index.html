@@ -1107,7 +1107,9 @@ function openDraft(id, type) {
   const overlay = document.getElementById('panel-overlay');
   document.getElementById('panel-guest').textContent = b.name + (type==='annulering'?' — Annulering':'');
   document.getElementById('panel-dates').textContent = type==='keyholder'?`Keyholder: ${settings.keyholderEmail}`:type==='annulering'?`Annulering → ${settings.keyholderEmail}`:`Aankomst: ${fmtDateShort(b.start)}`;
-  const lang = getGuestLang(b.country, b.langCode);
+  const currentCountry = editedCountry[id] !== undefined ? editedCountry[id] : b.country;
+  const currentLangCode = editedCountry[id] !== undefined ? '' : b.langCode;
+  const lang = getGuestLang(currentCountry, currentLangCode);
   const sender = settings.senderName;
   const link = editedLink[id]||'';
   let body = '';
@@ -1187,7 +1189,9 @@ function updateDraftLink(id) {
   saveBookingField(id,'link',val);
   const b = bookings.find(x=>x.id===id);
   if (b) {
-    const lang = getGuestLang(b.country, b.langCode);
+    const cc = editedCountry[id] !== undefined ? editedCountry[id] : b.country;
+    const lc = editedCountry[id] !== undefined ? '' : b.langCode;
+    const lang = getGuestLang(cc, lc);
     document.getElementById('draft-content').textContent = buildGuestDraft(b, lang, settings.senderName, val);
   }
 }
