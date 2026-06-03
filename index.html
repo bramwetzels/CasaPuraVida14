@@ -892,7 +892,8 @@ function processBookings(rows) {
     const country = editedCountry[id] !== undefined ? editedCountry[id] : (csvCountry || '');
     const email = editedEmail[id] !== undefined ? editedEmail[id] : (r.customer_email||"");
     const phone = editedPhone[id] !== undefined ? editedPhone[id] : (r.customer_phone||"");
-    const langCode = (r.customer_lang||"").toLowerCase().trim();
+    // If country was manually overridden, ignore the CSV langCode so the manual country drives the language
+    const langCode = editedCountry[id] !== undefined ? '' : (r.customer_lang||"").toLowerCase().trim();
     const notes = r.booking_notes||"";
     const checkinHour = r.booking_start_hour||"16:00";
     const checkoutHour = r.booking_end_hour||"10:00";
@@ -1114,8 +1115,47 @@ function openDraft(id, type) {
       <input type="text" class="link-input" id="draft-link-input" value="${link}" placeholder="https://..." oninput="updateDraftLink('${id}')">
     </div>
   ` : '';
+  const guestInfoBlock = type === 'gast' ? (() => {
+    // Split phone into country code and local number
+    const rawPhone = b.phone || '';
+    let phoneCC = '', phoneLocal = '';
+    if (rawPhone.startsWith('+')) {
+      // Match +XX, +XXX, +XXXX (1-4 digits) followed by rest
+      const m = rawPhone.match(/^(\+\d{1,4})\s*(.*)$/);
+      if (m) { phoneCC = m[1]; phoneLocal = m[2].replace(/\s+/g,''); }
+      else { phoneLocal = rawPhone; }
+    } else if (rawPhone.startsWith('00')) {
+      const m = rawPhone.match(/^(00\d{1,3})\s*(.*)$/);
+      if (m) { phoneCC = '+' + m[1].slice(2); phoneLocal = m[2].replace(/\s+/g,''); }
+      else { phoneLocal = rawPhone; }
+    } else {
+      phoneLocal = rawPhone;
+    }
+    const copyBtn = (val) => val ? `<button onclick="navigator.clipboard.writeText('${val.replace(/'/g,"\\'")}').then(()=>{this.textContent='✓';setTimeout(()=>this.textContent='Kopieer',1200)})" style="font-size:10px;padding:2px 7px;border:1px solid var(--border-strong);border-radius:4px;background:var(--gray-50);cursor:pointer;color:var(--text-muted);white-space:nowrap">Kopieer</button>` : '';
+    const row = (label, val, copyable=true) => `
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:5px 0;border-bottom:1px solid var(--border)">
+        <div style="font-size:11px;color:var(--text-faint);min-width:130px">${label}</div>
+        <div style="font-size:12px;color:var(--text);flex:1;text-align:right;padding:0 8px">${val||'<span style="color:var(--text-faint)">—</span>'}</div>
+        ${copyable && val ? copyBtn(val) : '<div style="width:52px"></div>'}
+      </div>`;
+    const personsLine = [
+      b.adults ? `${b.adults} volw.` : '',
+      b.children ? `${b.children} kind${b.children!=1?'eren':''}` : ''
+    ].filter(Boolean).join(' · ') || '—';
+    return `<div style="background:var(--gray-50);border-radius:8px;padding:8px 12px;margin-bottom:14px;border:1px solid var(--border)">
+      <div style="font-size:10px;font-weight:600;color:var(--text-faint);text-transform:uppercase;letter-spacing:.05em;margin-bottom:4px">Gastgegevens</div>
+      ${row('Naam', b.name)}
+      ${row('E-mailadres', b.email)}
+      ${row('Personen', personsLine, false)}
+      ${phoneCC ? row('Landcode telefoon', phoneCC) : ''}
+      ${row('Telefoonnummer', phoneLocal)}
+      ${row('Land van herkomst', b.country, false)}
+    </div>`;
+  })() : '';
+
   document.getElementById('panel-body').innerHTML = `
     <div class="panel-section">
+      ${guestInfoBlock}
       ${linkField}
       <div class="draft-subject">Onderwerp</div>
       <div class="draft-box" style="margin-bottom:12px;padding:8px 12px;">${getDraftSubject(b,type,lang)}</div>
