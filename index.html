@@ -1576,7 +1576,9 @@ async function init() {
 // afterLogin: true  = called right after signInWithPassword or mfa.verify
 //             false = called on page load (init)
 async function checkAuth(afterLogin = false) {
+  console.log('[CPV] checkAuth start, afterLogin=', afterLogin, 'appLoaded=', appLoaded);
   const { data: { session }, error: sessErr } = await sb.auth.getSession();
+  console.log('[CPV] getSession result:', session ? 'session found' : 'no session', sessErr ? 'err:'+sessErr.message : '');
 
   if (sessErr || !session) {
     showLoginScreen();
@@ -1592,17 +1594,20 @@ async function checkAuth(afterLogin = false) {
 
   // Check MFA level
   const { data: aal } = await sb.auth.mfa.getAuthenticatorAssuranceLevel();
+  console.log('[CPV] AAL:', JSON.stringify(aal));
   const needsMfa = aal?.nextLevel === 'aal2' && aal?.currentLevel !== 'aal2';
+  console.log('[CPV] needsMfa=', needsMfa);
 
   if (needsMfa) {
     if (!afterLogin) {
-      // Stale aal1 session on page load — discard so user logs in fresh
+      console.log('[CPV] Stale aal1 session on page load — signing out');
       await sb.auth.signOut();
       showLoginScreen();
       return;
     }
-    // Fresh login — show TOTP screen
+    console.log('[CPV] Fresh login needs MFA — fetching factors');
     const { data: factors } = await sb.auth.mfa.listFactors();
+    console.log('[CPV] Factors:', JSON.stringify(factors));
     const totp = factors?.totp?.[0];
     if (totp) {
       totpFactorId = totp.id;
@@ -1612,7 +1617,8 @@ async function checkAuth(afterLogin = false) {
     }
   }
 
-  // Auth complete — load and show app
+  // Auth complete
+  console.log('[CPV] Auth complete, loading app');
   if (!appLoaded) {
     await loadStorage();
   }
@@ -1673,6 +1679,7 @@ async function handleLogin() {
         ? 'Onjuist e-mailadres of wachtwoord.' : error.message;
       return;
     }
+    console.log('[CPV] signInWithPassword success, calling checkAuth(true)');
     await checkAuth(true);
   } catch(e) {
     errEl.textContent = 'Er ging iets mis. Probeer opnieuw.';
@@ -1693,7 +1700,7 @@ async function handleTotpVerify() {
     if (ce) { errEl.textContent = ce.message; return; }
     const { error } = await sb.auth.mfa.verify({ factorId: totpFactorId, challengeId: challengeData.id, code });
     if (error) { errEl.textContent = 'Ongeldige code. Probeer opnieuw.'; return; }
-    // Verified — go through checkAuth() so Safari re-reads the refreshed session
+    console.log('[CPV] TOTP verify success, calling checkAuth(true)');
     await checkAuth(true);
   } catch(e) {
     errEl.textContent = 'Er ging iets mis.';
