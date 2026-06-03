@@ -399,6 +399,7 @@ tr.cancelled td { opacity: 0.45; }
           </div>
           <div class="tab-actions">
             <div class="filter-chips" id="filter-chips"></div>
+            <button id="past-toggle-btn" class="btn" onclick="togglePastBookings()" style="font-size:11px;padding:4px 10px">Toon verleden</button>
             <div class="view-toggle">
               <button class="view-btn active" onclick="setView('tabel',this)">Tabel</button>
               <button class="view-btn" onclick="setView('kalender',this)">Kalender</button>
@@ -427,6 +428,8 @@ tr.cancelled td { opacity: 0.45; }
             </thead>
             <tbody id="bookings-body"></tbody>
           </table>
+          <div id="past-bookings-hint" style="display:none;text-align:center;padding:10px;font-size:12px;color:var(--text-faint);cursor:pointer" onclick="togglePastBookings()">
+          </div>
         </div>
         <div id="view-kalender" style="display:none">
           <div class="calendar-wrap">
@@ -615,6 +618,7 @@ let settings = { keyholderEmail: 'info@vettschoon.com', senderName: 'Bram', gift
 let isFirstUpload = false;
 let prevBookingIds = [];
 let currentFilter = 'alle';
+let showPastBookings = false;
 let currentView = 'tabel';
 let calMonth = new Date().getMonth();
 let calYear = new Date().getFullYear();
@@ -1291,7 +1295,6 @@ function buildCommStatus(b) {
        + buildCommRow(b, 'keyholder', 'Keyholder-mail');
 }
 
-
 function fmtSentDate(ts) {
   if (!ts) return null;
   const d = new Date(ts);
@@ -1403,15 +1406,25 @@ function renderMetrics() {
   document.getElementById('m-omzet').textContent = '€ '+Math.round(omzet).toLocaleString('nl-NL');
 }
 
+function togglePastBookings() {
+  showPastBookings = !showPastBookings;
+  const btn = document.getElementById('past-toggle-btn');
+  if (btn) btn.textContent = showPastBookings ? 'Verberg verleden' : 'Toon verleden';
+  renderTable();
+}
+
 function renderTable() {
   const tbody = document.getElementById('bookings-body');
   if (!tbody) return;
-  const today = new Date();
+  const today = new Date(); today.setHours(0,0,0,0);
   let filtered = bookings;
   if (currentFilter==='bevestigd') filtered = bookings.filter(b=>!b.isCancelled&&!b.isEigen&&(b.status||'').toLowerCase().includes('bevestigd'));
   if (currentFilter==='optie') filtered = bookings.filter(b=>!b.isCancelled&&!b.isEigen&&(b.status||'').toLowerCase().includes('voorlopig'));
   if (currentFilter==='geannuleerd') filtered = bookings.filter(b=>b.isCancelled);
   if (currentFilter==='eigen') filtered = bookings.filter(b=>b.isEigen);
+  // Hide past bookings unless toggle is on
+  if (!showPastBookings) filtered = filtered.filter(b => !b.end || b.end >= today);
+  const hiddenCount = bookings.filter(b => b.end && b.end < today).length;
   tbody.innerHTML = filtered.map(b => {
     const log = sentLog[b.id]||{};
     const daysUntil = b.start ? Math.round((b.start-today)/86400000) : 999;
@@ -1434,6 +1447,16 @@ function renderTable() {
       <td>${needsAction||needsCancel?'<span class="action-needed">● Actie</span>':''}</td>
     </tr>`;
   }).join('');
+  // Show hint when past bookings are hidden
+  const hint = document.getElementById('past-bookings-hint');
+  if (hint) {
+    if (!showPastBookings && hiddenCount > 0) {
+      hint.textContent = `${hiddenCount} eerdere boeking${hiddenCount!==1?'en':''} verborgen`;
+      hint.style.display = 'block';
+    } else {
+      hint.style.display = 'none';
+    }
+  }
 }
 
 function renderWerkItems() {
@@ -1530,9 +1553,6 @@ function setView(v, el) {
   if (v==='kalender') renderCalendar();
 }
 
-
-
-
 // ─── AUTH & INIT ─────────────────────────────────────────────────────────────
 //
 // Auth-flow (Safari-compatibel met PKCE):
@@ -1550,6 +1570,8 @@ function setView(v, el) {
 //  handleLogout() → signOut → checkAuth()
 
 let totpFactorId = null;
+const CPV_DEBUG = false; // zet op true voor auth-logging in de console
+const cpvLog = (...args) => { if (CPV_DEBUG) console.log('[CPV]', ...args); };
 let appLoaded    = false;
 
 async function init() {
@@ -1576,38 +1598,36 @@ async function init() {
 // afterLogin: true  = called right after signInWithPassword or mfa.verify
 //             false = called on page load (init)
 async function checkAuth(afterLogin = false) {
-  console.log('[CPV] checkAuth start, afterLogin=', afterLogin, 'appLoaded=', appLoaded);
+  cpvLog('checkAuth start, afterLogin=', afterLogin, 'appLoaded=', appLoaded);
   const { data: { session }, error: sessErr } = await sb.auth.getSession();
-  console.log('[CPV] getSession result:', session ? 'session found' : 'no session', sessErr ? 'err:'+sessErr.message : '');
+  cpvLog('getSession:', session ? 'session found' : 'no session', sessErr ? 'err:'+sessErr.message : '');
 
   if (sessErr || !session) {
     showLoginScreen();
     return;
   }
 
-  // Refresh user + profile
   currentUser = session.user;
   try {
     const { data: profile } = await sb.from('profiles').select('*').eq('id', currentUser.id).single();
     currentProfile = profile;
   } catch(e) { currentProfile = null; }
 
-  // Check MFA level
   const { data: aal } = await sb.auth.mfa.getAuthenticatorAssuranceLevel();
-  console.log('[CPV] AAL:', JSON.stringify(aal));
+  cpvLog('AAL:', JSON.stringify(aal));
   const needsMfa = aal?.nextLevel === 'aal2' && aal?.currentLevel !== 'aal2';
-  console.log('[CPV] needsMfa=', needsMfa);
+  cpvLog('needsMfa=', needsMfa);
 
   if (needsMfa) {
     if (!afterLogin) {
-      console.log('[CPV] Stale aal1 session on page load — signing out');
+      cpvLog('Stale aal1 session on page load — signing out');
       await sb.auth.signOut();
       showLoginScreen();
       return;
     }
-    console.log('[CPV] Fresh login needs MFA — fetching factors');
+    cpvLog('Fresh login needs MFA — fetching factors');
     const { data: factors } = await sb.auth.mfa.listFactors();
-    console.log('[CPV] Factors:', JSON.stringify(factors));
+    cpvLog('Factors:', JSON.stringify(factors));
     const totp = factors?.totp?.[0];
     if (totp) {
       totpFactorId = totp.id;
@@ -1617,8 +1637,7 @@ async function checkAuth(afterLogin = false) {
     }
   }
 
-  // Auth complete
-  console.log('[CPV] Auth complete, loading app');
+  cpvLog('Auth complete, loading app');
   if (!appLoaded) {
     await loadStorage();
   }
@@ -1679,7 +1698,7 @@ async function handleLogin() {
         ? 'Onjuist e-mailadres of wachtwoord.' : error.message;
       return;
     }
-    console.log('[CPV] signInWithPassword success, calling checkAuth(true)');
+  
     await checkAuth(true);
   } catch(e) {
     errEl.textContent = 'Er ging iets mis. Probeer opnieuw.';
@@ -1700,7 +1719,7 @@ async function handleTotpVerify() {
     if (ce) { errEl.textContent = ce.message; return; }
     const { error } = await sb.auth.mfa.verify({ factorId: totpFactorId, challengeId: challengeData.id, code });
     if (error) { errEl.textContent = 'Ongeldige code. Probeer opnieuw.'; return; }
-    console.log('[CPV] TOTP verify success, calling checkAuth(true)');
+  
     await checkAuth(true);
   } catch(e) {
     errEl.textContent = 'Er ging iets mis.';
@@ -1784,7 +1803,6 @@ async function verifyTotpSetup(factorId) {
 let monthPrices = {1:0,2:0,3:0,4:0,5:0,6:0,7:0,8:0,9:0,10:0,11:0,12:0};
 const MONTH_NAMES = ['jan','feb','mrt','apr','mei','jun','jul','aug','sep','okt','nov','dec'];
 const MONTH_NAMES_LONG = ['januari','februari','maart','april','mei','juni','juli','augustus','september','oktober','november','december'];
-
 
 function initMonthPricesGrid() {
   const grid = document.getElementById('month-prices-grid');
@@ -1942,7 +1960,6 @@ function buildPriceText(start, end) {
     return p > 0 ? `${MONTH_NAMES[b.month-1]}: € ${p} p/n` : `${MONTH_NAMES[b.month-1]}: geen prijs`;
   }).join(', ');
 }
-
 
 function renderBeschikbaarheid() {
   const startVal = document.getElementById('avail-start').value;
@@ -2122,7 +2139,6 @@ function copyBeschikbaarheid() {
     navigator.clipboard.writeText(plain).then(() => alert('Gekopieerd als platte tekst (HTML niet ondersteund in deze browser)'));
   });
 }
-
 
 // ─── BEZETTING ───────────────────────────────────────────────────────────────
 let bezettingYear = new Date().getFullYear();
