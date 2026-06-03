@@ -541,7 +541,10 @@ tr.cancelled td { opacity: 0.45; }
 
         <!-- Nachtprijzen per maand -->
         <div style="padding:0 18px 16px">
-          <div class="field-label" style="font-size:11px;font-weight:600;color:var(--text-faint);text-transform:uppercase;letter-spacing:.04em;margin-bottom:10px">Nachtprijs per maand (€)</div>
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+            <div class="field-label" style="font-size:11px;font-weight:600;color:var(--text-faint);text-transform:uppercase;letter-spacing:.04em">Nachtprijs per maand (€)</div>
+            <span id="mp-save-indicator" style="font-size:11px;color:var(--green);font-weight:600"></span>
+          </div>
           <div style="display:grid;grid-template-columns:repeat(6,1fr);gap:8px" id="month-prices-grid"></div>
         </div>
       </div>
@@ -782,7 +785,8 @@ function saveEmail() { /* handled by saveBookingField */ }
 function savePhone() { /* handled by saveBookingField */ }
 async function saveMonthPrices() {
   for (const [m, price] of Object.entries(monthPrices)) {
-    await sb.from('month_prices').upsert({ month: parseInt(m), price }, { onConflict: 'month' });
+    const { error } = await sb.from('month_prices').upsert({ month: parseInt(m), price }, { onConflict: 'month' });
+    if (error) { cpvLog('saveMonthPrices error maand', m, error.message); }
   }
 }
 async function clearHistory() {
@@ -1235,11 +1239,11 @@ function buildKeyholderDraft(b, sender) {
   const created = b.created ? fmtDate(b.created) : '—';
   const contactLine = b.email ? `\nContactgegevens gast:\nE-mail: ${b.email}${b.phone ? '\nTelefoon: '+b.phone : ''}` : (b.phone ? `\nTelefoon gast: ${b.phone}` : '');
   const lateLine = b.lateCheckin ? '\n⚠ LET OP: Late check-in na 20:00 uur!' : '';
-  return `Beste,\n\nHierbij informeer ik je over de aankomende boeking bij Casa Pura Vida 14:\n\nNaam gast: ${b.name}\nAantal personen: ${persons}\nBoekingsherkomst: ${src}\nLand van herkomst: ${country}\nAankomstdatum: ${checkin} om ${b.checkinHour||'16:00'}\nVertrekdatum: ${checkout} om ${b.checkoutHour||'10:00'}\nDatum boeking: ${created}\nIncheck nodig: Ja\nUitcheck nodig: Ja\nWelkomstcadeau: ${gift} (${b.nights} nachten)${contactLine}${lateLine}\n\nMochten er vragen zijn, dan hoor ik het graag.\n\nGroeten,\n${sender}`;
+  return `Hoi Nick,\n\nHierbij informeren we je over de aankomende boeking bij Casa Pura Vida 14:\n\nNaam gast: ${b.name}\nAantal personen: ${persons}\nBoekingsherkomst: ${src}\nLand van herkomst: ${country}\nAankomstdatum: ${checkin} om ${b.checkinHour||'16:00'}\nVertrekdatum: ${checkout} om ${b.checkoutHour||'10:00'}\nDatum boeking: ${created}\nIncheck nodig: Ja\nUitcheck nodig: Ja\nWelkomstcadeau: ${gift} (${b.nights} nachten)${contactLine}${lateLine}\n\nMochten er vragen zijn, dan horen we het graag.\n\nGroeten,\n${sender}`;
 }
 
 function buildCancellationDraft(b, sender) {
-  return `Beste,\n\nIk wil je laten weten dat de reservering van ${b.name}, die gepland stond van ${fmtDate(b.start)} tot ${fmtDate(b.end)}, helaas is geannuleerd.\n\nJe hoeft voor deze periode geen actie te ondernemen.\n\nMocht je nog vragen hebben, dan hoor ik het graag.\n\nGroeten,\n${sender}`;
+  return `Hoi Nick,\n\nWe willen je laten weten dat de reservering van ${b.name}, die gepland stond van ${fmtDate(b.start)} tot ${fmtDate(b.end)}, helaas is geannuleerd.\n\nJe hoeft voor deze periode geen actie te ondernemen.\n\nMocht je nog vragen hebben, dan horen we het graag.\n\nGroeten,\n${sender}`;
 }
 
 function copyDraft() {
@@ -1912,6 +1916,18 @@ let monthPrices = {1:0,2:0,3:0,4:0,5:0,6:0,7:0,8:0,9:0,10:0,11:0,12:0};
 const MONTH_NAMES = ['jan','feb','mrt','apr','mei','jun','jul','aug','sep','okt','nov','dec'];
 const MONTH_NAMES_LONG = ['januari','februari','maart','april','mei','juni','juli','augustus','september','oktober','november','december'];
 
+let monthPriceSaveTimer = null;
+function onMonthPriceInput(m, val) {
+  monthPrices[m] = parseFloat(val) || 0;
+  clearTimeout(monthPriceSaveTimer);
+  const ind = document.getElementById('mp-save-indicator');
+  if (ind) { ind.textContent = ''; }
+  monthPriceSaveTimer = setTimeout(async () => {
+    await saveMonthPrices();
+    if (ind) { ind.textContent = '✓ Opgeslagen'; setTimeout(() => { if (ind) ind.textContent = ''; }, 2000); }
+  }, 800);
+}
+
 function initMonthPricesGrid() {
   const grid = document.getElementById('month-prices-grid');
   if (!grid) return;
@@ -1923,7 +1939,7 @@ function initMonthPricesGrid() {
         <span style="font-size:11px;color:var(--text-muted)">€</span>
         <input type="number" id="mp-${m}" value="${monthPrices[m]||0}" min="0" step="5"
           class="field-val editable" style="width:64px;padding:4px 6px;font-size:12px;border:1px solid var(--border-strong);border-radius:6px;font-family:var(--mono)"
-          oninput="monthPrices[${m}]=parseFloat(this.value)||0;saveMonthPrices()">
+          oninput="onMonthPriceInput(${m}, this.value)">
       </div>
     </div>`;
   }).join('');
