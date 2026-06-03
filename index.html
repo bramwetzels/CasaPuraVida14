@@ -768,16 +768,16 @@ async function saveBookingField(id, field, value) {
     country:'country', email:'email', phone:'phone', welcome:'welcome_gift', link:'admin_link' };
   const col = colMap[field];
   if (!col) return;
-  const { data: existing, error: selErr } = await sb.from('bookings_data').select('booking_id').eq('booking_id', id).single();
-  if (selErr && selErr.code !== 'PGRST116') { console.error('[CPV] saveBookingField select error:', selErr); }
+  const { data: existing, error: selErr } = await sb.from('bookings_data').select('booking_id').eq('booking_id', id).maybeSingle();
+  if (selErr) { console.error('[CPV] saveBookingField select error:', selErr); return; }
   if (existing) {
     const { error } = await sb.from('bookings_data').update(
-      { [col]: value, updated_by: currentUser?.id, updated_at: new Date().toISOString() }
+      { [col]: value, updated_at: new Date().toISOString() }
     ).eq('booking_id', id);
     if (error) console.error('[CPV] saveBookingField update error:', error);
   } else {
     const { error } = await sb.from('bookings_data').insert(
-      { booking_id: id, [col]: value, updated_by: currentUser?.id, updated_at: new Date().toISOString() }
+      { booking_id: id, [col]: value, updated_at: new Date().toISOString() }
     );
     if (error) console.error('[CPV] saveBookingField insert error:', error);
   }
