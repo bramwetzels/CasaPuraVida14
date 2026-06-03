@@ -768,16 +768,18 @@ async function saveBookingField(id, field, value) {
     country:'country', email:'email', phone:'phone', welcome:'welcome_gift', link:'admin_link' };
   const col = colMap[field];
   if (!col) return;
-  // Check if row exists — if so, update only the changed column to avoid overwriting others
-  const { data: existing } = await sb.from('bookings_data').select('booking_id').eq('booking_id', id).single();
+  const { data: existing, error: selErr } = await sb.from('bookings_data').select('booking_id').eq('booking_id', id).single();
+  if (selErr && selErr.code !== 'PGRST116') { console.error('[CPV] saveBookingField select error:', selErr); }
   if (existing) {
-    await sb.from('bookings_data').update(
+    const { error } = await sb.from('bookings_data').update(
       { [col]: value, updated_by: currentUser?.id, updated_at: new Date().toISOString() }
     ).eq('booking_id', id);
+    if (error) console.error('[CPV] saveBookingField update error:', error);
   } else {
-    await sb.from('bookings_data').insert(
+    const { error } = await sb.from('bookings_data').insert(
       { booking_id: id, [col]: value, updated_by: currentUser?.id, updated_at: new Date().toISOString() }
     );
+    if (error) console.error('[CPV] saveBookingField insert error:', error);
   }
 }
 function savePrices() { /* handled by saveBookingField */ }
