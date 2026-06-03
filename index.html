@@ -1542,12 +1542,21 @@ async function init() {
 
   sb.auth.onAuthStateChange(async (event, session) => {
     if (event === 'SIGNED_IN' && session) {
+      if (appLoaded) return; // already handled
       currentUser = session.user;
       const { data: profile } = await sb.from('profiles').select('*').eq('id', currentUser.id).single();
       currentProfile = profile;
+      // Check MFA before showing app
+      const { data: aal } = await sb.auth.mfa.getAuthenticatorAssuranceLevel();
+      if (aal?.nextLevel === 'aal2' && aal?.currentLevel !== 'aal2') {
+        const { data: factors } = await sb.auth.mfa.listFactors();
+        const totp = factors?.totp?.[0];
+        if (totp) { totpFactorId = totp.id; showAuthScreen(); showTotpScreen(); return; }
+      }
       await loadStorage();
       showApp();
     } else if (event === 'SIGNED_OUT') {
+      appLoaded = false;
       currentUser = null;
       currentProfile = null;
       showAuthScreen();
@@ -1576,6 +1585,7 @@ async function init() {
 }
 
 function showApp() {
+  appLoaded = true;
   document.getElementById('auth-screen').style.display = 'none';
   document.getElementById('app-root').style.display = 'flex';
   document.getElementById('kh-email-input').value = settings.keyholderEmail;
@@ -1602,6 +1612,7 @@ function showTotpScreen() {
 
 let authMode = 'login';
 let totpFactorId = null;
+let appLoaded = false;
 
 async function handleLogin() {
   const email = document.getElementById('auth-email').value.trim();
@@ -1644,6 +1655,9 @@ async function handleTotpVerify() {
     if (ce) { errEl.textContent = ce.message; return; }
     const { error } = await sb.auth.mfa.verify({ factorId: totpFactorId, challengeId: challengeData.id, code });
     if (error) { errEl.textContent = 'Ongeldige code. Probeer opnieuw.'; return; }
+    // MFA verified — load app
+    await loadStorage();
+    showApp();
   } catch(e) {
     errEl.textContent = 'Er ging iets mis.';
   } finally {
