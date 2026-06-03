@@ -1572,8 +1572,10 @@ async function init() {
   await checkAuth();
 }
 
-// Central auth state machine — always call this after any auth action
-async function checkAuth() {
+// Central auth state machine — always call this after any auth action.
+// afterLogin: true  = called right after signInWithPassword or mfa.verify
+//             false = called on page load (init)
+async function checkAuth(afterLogin = false) {
   const { data: { session }, error: sessErr } = await sb.auth.getSession();
 
   if (sessErr || !session) {
@@ -1593,14 +1595,13 @@ async function checkAuth() {
   const needsMfa = aal?.nextLevel === 'aal2' && aal?.currentLevel !== 'aal2';
 
   if (needsMfa) {
-    // If called from init (app not yet loaded), discard the stale session
-    // so the user always goes through email + password first
-    if (!appLoaded) {
+    if (!afterLogin) {
+      // Stale aal1 session on page load — discard so user logs in fresh
       await sb.auth.signOut();
       showLoginScreen();
       return;
     }
-    // Called after a fresh login — show TOTP screen
+    // Fresh login — show TOTP screen
     const { data: factors } = await sb.auth.mfa.listFactors();
     const totp = factors?.totp?.[0];
     if (totp) {
@@ -1672,7 +1673,7 @@ async function handleLogin() {
         ? 'Onjuist e-mailadres of wachtwoord.' : error.message;
       return;
     }
-    await checkAuth();
+    await checkAuth(true);
   } catch(e) {
     errEl.textContent = 'Er ging iets mis. Probeer opnieuw.';
   } finally {
@@ -1693,7 +1694,7 @@ async function handleTotpVerify() {
     const { error } = await sb.auth.mfa.verify({ factorId: totpFactorId, challengeId: challengeData.id, code });
     if (error) { errEl.textContent = 'Ongeldige code. Probeer opnieuw.'; return; }
     // Verified — go through checkAuth() so Safari re-reads the refreshed session
-    await checkAuth();
+    await checkAuth(true);
   } catch(e) {
     errEl.textContent = 'Er ging iets mis.';
   } finally {
