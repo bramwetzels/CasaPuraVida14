@@ -336,7 +336,7 @@ tr.cancelled td { opacity: 0.45; }
         <button class="btn" onclick="showPage('gebruikers')">Beheerders</button>
         <button class="btn" onclick="handleLogout()">Uitloggen</button>
         <label class="btn btn-primary" style="cursor:pointer">
-          + CSV uploaden
+          + Synchroniseer CSV
           <input type="file" accept=".csv" class="upload-input" id="csv-input" onchange="handleCSV(event)">
         </label>
       </div>
@@ -380,7 +380,7 @@ tr.cancelled td { opacity: 0.45; }
       </div>
       <div id="no-data-state" class="upload-area" onclick="document.getElementById('csv-input').click()">
         <div style="font-size:32px;margin-bottom:10px">📂</div>
-        <div class="upload-area-text">Upload je wekelijkse CSV om te beginnen</div>
+        <div class="upload-area-text">Synchroniseer met Huurkalender om te beginnen</div>
         <div class="upload-area-sub">Huurkalender_export_*.csv</div>
       </div>
       <div id="werkvoorraad-preview" style="display:none"></div>
@@ -619,6 +619,7 @@ let isFirstUpload = false;
 let prevBookingIds = [];
 let currentFilter = 'alle';
 let showPastBookings = false;
+let rawBookingRows = []; // raw rows from DB, used by processBookings
 let currentView = 'tabel';
 let calMonth = new Date().getMonth();
 let calYear = new Date().getFullYear();
@@ -683,9 +684,48 @@ async function loadStorage() {
     // Load prev booking ids from settings
     const { data: pidData } = await sb.from('settings').select('value').eq('key','prevBookingIds').single();
     if (pidData?.value) prevBookingIds = JSON.parse(pidData.value);
+    // Load bookings from DB
+    await loadBookingsFromDB();
+    if (rawBookingRows.length > 0) {
+      bookings = processBookings(rawBookingRows);
+      isFirstUpload = prevBookingIds.length === 0;
+    }
   } catch(e) { console.error('loadStorage error:', e); }
 }
-// ─── SUPABASE SAVE FUNCTIONS ────────────────────────────────────────────────
+async function loadBookingsFromDB() {
+  const { data, error } = await sb.from('bookings').select('*').order('booking_start', { ascending: true });
+  if (error) { console.error('loadBookingsFromDB:', error); return; }
+  rawBookingRows = (data || []).map(r => ({
+    // Map DB columns back to CSV-style field names that processBookings expects
+    booking_id:         r.booking_id,
+    cal_name:           r.cal_name,
+    booking_status:     r.booking_status,
+    book_name:          r.book_name,
+    customer_name:      r.customer_name,
+    booking_create:     r.booking_create,
+    booking_start:      r.booking_start,
+    booking_start_hour: r.booking_start_hour,
+    booking_end:        r.booking_end,
+    booking_end_hour:   r.booking_end_hour,
+    booking_nights:     r.booking_nights,
+    booking_days:       r.booking_days,
+    booking_notes:      r.booking_notes,
+    booking_import:     r.booking_import,
+    customer_email:     r.customer_email,
+    customer_phone:     r.customer_phone,
+    customer_lang:      r.customer_lang,
+    customer_adult:     r.customer_adult,
+    customer_child:     r.customer_child,
+    adres_country:      r.adres_country,
+    price_rent:         r.price_rent != null ? String(r.price_rent).replace('.', ',') : '0',
+    price_services:     r.price_services != null ? String(r.price_services).replace('.', ',') : '0',
+    price_booking:      r.price_booking != null ? String(r.price_booking).replace('.', ',') : '0',
+    price_deposit:      r.price_deposit != null ? String(r.price_deposit).replace('.', ',') : '0',
+    price_discount:     r.price_discount != null ? String(r.price_discount).replace('.', ',') : '0',
+    price_recieved:     r.price_recieved != null ? String(r.price_recieved).replace('.', ',') : '0',
+    "serviceid30391_late-check-in-na-2000-uur": r.late_checkin ? 'ja' : 'nee',
+  }));
+}
 async function saveLog() {
   for (const [bid, log] of Object.entries(sentLog)) {
     await sb.from('sent_log').upsert({
@@ -863,25 +903,93 @@ function processBookings(rows) {
   }).filter(b => b.start);
 }
 
-function handleCSV(event) {
+async function handleCSV(event) {
   const file = event.target.files[0];
   if (!file) return;
-  const reader = new FileReader();
-  reader.onload = e => {
-    const rows = parseCSV(e.target.result);
-    const newBookings = processBookings(rows);
-    const newIds = newBookings.map(b=>b.id);
+  event.target.value = '';
+
+  const text = await file.text();
+  const rows = parseCSV(text);
+  if (!rows.length) return;
+
+  const csvIds = new Set(rows.map(r => r.booking_id).filter(Boolean));
+
+  // Show progress
+  const btn = document.getElementById('upload-btn') || document.querySelector('[onclick*="csv-input"]');
+  const origLabel = btn ? btn.textContent : '';
+  if (btn) btn.textContent = 'Bezig…';
+
+  try {
+    // 1. Upsert all rows from CSV into bookings table
+    const upsertRows = rows.map(r => ({
+      booking_id:         r.booking_id,
+      cal_name:           r.cal_name || null,
+      booking_status:     r.booking_status || null,
+      book_name:          r.book_name || null,
+      customer_name:      r.customer_name || null,
+      booking_create:     r.booking_create || null,
+      booking_start:      r.booking_start || null,
+      booking_start_hour: r.booking_start_hour || null,
+      booking_end:        r.booking_end || null,
+      booking_end_hour:   r.booking_end_hour || null,
+      booking_nights:     parseInt(r.booking_nights)||0,
+      booking_days:       parseInt(r.booking_days)||0,
+      booking_notes:      r.booking_notes || null,
+      booking_import:     r.booking_import || null,
+      customer_email:     r.customer_email || null,
+      customer_phone:     r.customer_phone || null,
+      customer_lang:      r.customer_lang || null,
+      customer_adult:     parseInt(r.customer_adult)||0,
+      customer_child:     parseInt(r.customer_child)||0,
+      adres_street:       r.adres_street || null,
+      adres_street_num:   r.adres_street_num || null,
+      adres_postalcode:   r.adres_postalcode || null,
+      adres_city:         r.adres_city || null,
+      adres_country:      r.adres_country || null,
+      price_rent:         parsePrice(r.price_rent),
+      price_services:     parsePrice(r.price_services),
+      booking_bail_num:   parsePrice(r.booking_bail_num),
+      price_booking:      parsePrice(r.price_booking),
+      price_deposit:      parsePrice(r.price_deposit),
+      price_discount:     parsePrice(r.price_discount),
+      price_manual:       parsePrice(r.price_manual),
+      price_bail:         parsePrice(r.price_bail),
+      price_recieved:     parsePrice(r.price_recieved),
+      coupon_name:        r.coupon_name || null,
+      coupon_price:       parsePrice(r.coupon_price),
+      services:           r.services || null,
+      late_checkin:       (r["serviceid30391_late-check-in-na-2000-uur"]||"").toLowerCase() === "ja",
+      updated_at:         new Date().toISOString()
+    }));
+
+    const { error: upsertErr } = await sb.from('bookings').upsert(upsertRows, { onConflict: 'booking_id' });
+    if (upsertErr) { alert('Fout bij opslaan: ' + upsertErr.message); return; }
+
+    // 2. Mark bookings not in CSV as cancelled (if not already cancelled)
+    const { data: dbBookings } = await sb.from('bookings').select('booking_id, booking_status');
+    if (dbBookings) {
+      const toCancel = dbBookings
+        .filter(b => !csvIds.has(b.booking_id) && !(b.booking_status||'').toLowerCase().includes('geannuleerd'))
+        .map(b => b.booking_id);
+      for (const bid of toCancel) {
+        await sb.from('bookings').update({ booking_status: 'Geannuleerd', updated_at: new Date().toISOString() }).eq('booking_id', bid);
+      }
+    }
+
+    // 3. Reload from DB and re-render
+    await loadBookingsFromDB();
+    const newBookings = processBookings(rawBookingRows);
     isFirstUpload = prevBookingIds.length === 0;
     if (!isFirstUpload) detectChanges(bookings, newBookings);
     bookings = newBookings;
-    prevBookingIds = newIds;
+    prevBookingIds = bookings.map(b => b.id);
     savePrevIds();
     if (isFirstUpload) document.getElementById('first-run-banner').style.display='flex';
     else document.getElementById('first-run-banner').style.display='none';
     render();
-    event.target.value = '';
-  };
-  reader.readAsText(file);
+  } finally {
+    if (btn) btn.textContent = origLabel;
+  }
 }
 
 function detectChanges(old, newB) {
