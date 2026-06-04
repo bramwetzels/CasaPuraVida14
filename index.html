@@ -1392,7 +1392,10 @@ function openBookingDetail(id) {
       ${buildCommStatus(b)}
     </div>
   `;
-  document.getElementById('panel-actions').innerHTML = `<button class="btn" onclick="closePanel()">Sluiten</button>`;
+  document.getElementById('panel-actions').innerHTML = `
+    ${(b.email && b.phone) ? `<button class="btn" onclick="exportVCard('${b.id}')">📇 Exporteer contact</button>` : ''}
+    <button class="btn" onclick="closePanel()">Sluiten</button>
+  `;
   panel.classList.add('open');
   overlay.classList.add('open');
 }
@@ -1510,6 +1513,34 @@ function selectCountry(id, val) {
   const inp = document.getElementById('country-input-'+id);
   if (inp) inp.value = val;
   hideCountryList(id);
+}
+
+function exportVCard(id) {
+  const b = bookings.find(x => x.id === id);
+  if (!b || !b.email || !b.phone) return;
+  const startStr = fmtDate(b.start);
+  const endStr = fmtDate(b.end);
+  const org = `Casa Pura Vida 14, ${startStr} t/m ${endStr}`;
+  const nameParts = b.name.trim().split(' ');
+  const firstName = nameParts[0] || '';
+  const lastName = nameParts.length > 1 ? nameParts.slice(1).join(' ') : '';
+  const vcf = [
+    'BEGIN:VCARD',
+    'VERSION:3.0',
+    `N:${lastName};${firstName};;;`,
+    `FN:${b.name}`,
+    `ORG:${org}`,
+    `EMAIL;TYPE=INTERNET:${b.email}`,
+    `TEL;TYPE=CELL:${b.phone}`,
+    'END:VCARD'
+  ].join('\r\n');
+  const blob = new Blob([vcf], { type: 'text/vcard' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `${b.name.replace(/\s+/g, '_')}.vcf`;
+  a.click();
+  URL.revokeObjectURL(url);
 }
 
 function closePanel() {
