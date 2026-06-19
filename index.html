@@ -506,7 +506,14 @@ tr.cancelled td { opacity: 0.45; }
         <div style="padding:16px 18px">
           <div style="font-size:12px;color:var(--text-muted);margin-bottom:12px">Scan de QR-code met Google Authenticator of Authy om twee-factor authenticatie te activeren voor jouw account.</div>
           <div id="totp-setup-area"></div>
-          <button class="btn btn-primary" onclick="setupTotp()">2FA instellen / opnieuw instellen</button>
+          <div id="totp-reauth-wrap">
+            <div style="font-size:11px;color:var(--text-faint);font-weight:600;margin-bottom:6px">Bevestig je wachtwoord om door te gaan</div>
+            <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+              <input type="password" id="totp-reauth-password" placeholder="Wachtwoord" style="padding:8px 10px;border:1px solid var(--border-strong);border-radius:6px;font-size:13px;font-family:var(--font);width:200px;" onkeydown="if(event.key==='Enter')setupTotp()">
+              <button class="btn btn-primary" onclick="setupTotp()">2FA instellen / opnieuw instellen</button>
+            </div>
+            <div id="totp-reauth-error" style="color:var(--red);font-size:12px;margin-top:6px;min-height:16px"></div>
+          </div>
         </div>
       </div>
     </div>
@@ -2005,6 +2012,27 @@ async function removeUser(id) {
 
 async function setupTotp() {
   const area = document.getElementById('totp-setup-area');
+  const reauthErrEl = document.getElementById('totp-reauth-error');
+  if (reauthErrEl) reauthErrEl.textContent = '';
+
+  // Herbevestig wachtwoord vóór enrollen
+  const pwInput = document.getElementById('totp-reauth-password');
+  const pw = pwInput ? pwInput.value : '';
+  if (!pw) {
+    if (reauthErrEl) reauthErrEl.textContent = 'Voer je wachtwoord in ter bevestiging.';
+    return;
+  }
+  const { error: reauthErr } = await sb.auth.signInWithPassword({
+    email: currentUser.email,
+    password: pw
+  });
+  if (reauthErr) {
+    if (reauthErrEl) reauthErrEl.textContent = 'Onjuist wachtwoord.';
+    if (pwInput) pwInput.value = '';
+    return;
+  }
+  if (pwInput) pwInput.value = ''; // wis wachtwoord direct uit DOM
+
   area.innerHTML = '<div style="font-size:12px;color:var(--text-muted)">Bezig met laden...</div>';
   const { data, error } = await sb.auth.mfa.enroll({ factorType: 'totp', friendlyName: 'Casa Pura Vida 14' });
   if (error) { area.innerHTML = `<div style="color:var(--red);font-size:12px">${error.message}</div>`; return; }
@@ -2039,6 +2067,9 @@ async function verifyTotpSetup(factorId) {
   area.innerHTML = '';
   await new Promise(r => setTimeout(r, 50));
   area.innerHTML = '<div style="color:var(--green);font-size:13px;font-weight:600">✓ 2FA succesvol geactiveerd!</div>';
+  // Verberg het reauth-formulier — niet meer nodig na activatie
+  const reauthWrap = document.getElementById('totp-reauth-wrap');
+  if (reauthWrap) reauthWrap.style.display = 'none';
 }
 
 // ─── BESCHIKBAARHEID ─────────────────────────────────────────────────────────
@@ -2538,4 +2569,3 @@ window.__cpvInit = function() { init(); };
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2" onload="window.__cpvInit()"></script>
 </body>
 </html>
-  
