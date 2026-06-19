@@ -1772,6 +1772,10 @@ function setView(v, el) {
 //  handleLogout() → signOut → checkAuth()
 
 let totpFactorId = null;
+let totpAttempts = 0;
+const TOTP_MAX_ATTEMPTS = 5;
+let totpTimeoutHandle = null;
+const TOTP_TIMEOUT_MS = 5 * 60 * 1000; // 5 minuten
 const CPV_DEBUG = false; // zet op true voor auth-logging in de console
 const cpvLog = (...args) => { if (CPV_DEBUG) console.log('[CPV]', ...args); };
 let appLoaded    = false;
@@ -1868,6 +1872,8 @@ function showAuthScreen() {
 }
 
 function showLoginScreen() {
+  clearTimeout(totpTimeoutHandle);
+  totpAttempts = 0;
   showAuthScreen();
   document.getElementById('auth-form').style.display = 'block';
   document.getElementById('totp-form').style.display = 'none';
@@ -1881,6 +1887,14 @@ function showTotpScreen() {
   document.getElementById('totp-error').textContent = '';
   // Focus after short delay so Safari renders the input first
   setTimeout(() => { const el = document.getElementById('totp-code'); if (el) el.focus(); }, 100);
+  // Start sessietime-out: na 5 minuten terugvallen naar loginscherm
+  clearTimeout(totpTimeoutHandle);
+  totpTimeoutHandle = setTimeout(async () => {
+    await sb.auth.signOut();
+    showLoginScreen();
+    const errEl = document.getElementById('auth-error');
+    if (errEl) errEl.textContent = 'Sessie verlopen. Log opnieuw in.';
+  }, TOTP_TIMEOUT_MS);
 }
 
 let authMode = 'login';
@@ -1912,21 +1926,43 @@ async function handleLogin() {
 async function handleTotpVerify() {
   const code  = document.getElementById('totp-code').value.trim();
   const errEl = document.getElementById('totp-error');
+  const btn   = document.getElementById('totp-btn');
   errEl.textContent = '';
+
+  // Blokkeer na te veel mislukte pogingen
+  if (totpAttempts >= TOTP_MAX_ATTEMPTS) {
+    errEl.textContent = 'Te veel pogingen. Log opnieuw in.';
+    btn.disabled = true;
+    return;
+  }
+
   if (!code || code.length !== 6) { errEl.textContent = 'Voer een 6-cijferige code in.'; return; }
-  const btn = document.getElementById('totp-btn');
   btn.textContent = 'Verifiëren...'; btn.disabled = true;
   try {
     const { data: challengeData, error: ce } = await sb.auth.mfa.challenge({ factorId: totpFactorId });
     if (ce) { errEl.textContent = ce.message; return; }
     const { error } = await sb.auth.mfa.verify({ factorId: totpFactorId, challengeId: challengeData.id, code });
-    if (error) { errEl.textContent = 'Ongeldige code. Probeer opnieuw.'; return; }
-  
+    if (error) {
+      totpAttempts++;
+      const remaining = TOTP_MAX_ATTEMPTS - totpAttempts;
+      if (remaining <= 0) {
+        errEl.textContent = 'Te veel pogingen. Log opnieuw in.';
+        btn.disabled = true;
+        // Gooi de aal1-sessie weg zodat de aanvaller opnieuw moet inloggen
+        await sb.auth.signOut();
+      } else {
+        errEl.textContent = `Ongeldige code. Nog ${remaining} poging${remaining === 1 ? '' : 'en'}.`;
+      }
+      return;
+    }
+    totpAttempts = 0;
     await checkAuth(true);
   } catch(e) {
     errEl.textContent = 'Er ging iets mis.';
   } finally {
-    btn.textContent = 'Verifiëren'; btn.disabled = false;
+    if (totpAttempts < TOTP_MAX_ATTEMPTS) {
+      btn.textContent = 'Verifiëren'; btn.disabled = false;
+    }
   }
 }
 
@@ -1998,7 +2034,11 @@ async function verifyTotpSetup(factorId) {
   if (ce) { errEl.textContent = ce.message; return; }
   const { error } = await sb.auth.mfa.verify({ factorId, challengeId: challenge.id, code });
   if (error) { errEl.textContent = 'Ongeldige code. Probeer opnieuw.'; return; }
-  document.getElementById('totp-setup-area').innerHTML = '<div style="color:var(--green);font-size:13px;font-weight:600">✓ 2FA succesvol geactiveerd!</div>';
+  // Wis direct de QR-code en secret uit de DOM — nooit bewaren na activatie
+  const area = document.getElementById('totp-setup-area');
+  area.innerHTML = '';
+  await new Promise(r => setTimeout(r, 50));
+  area.innerHTML = '<div style="color:var(--green);font-size:13px;font-weight:600">✓ 2FA succesvol geactiveerd!</div>';
 }
 
 // ─── BESCHIKBAARHEID ─────────────────────────────────────────────────────────
@@ -2498,3 +2538,4 @@ window.__cpvInit = function() { init(); };
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2" onload="window.__cpvInit()"></script>
 </body>
 </html>
+  
