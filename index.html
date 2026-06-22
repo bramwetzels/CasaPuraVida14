@@ -1876,10 +1876,26 @@ async function checkAuth(afterLogin = false) {
     currentProfile = profile;
   } catch(e) { currentProfile = null; }
 
-  const { data: aal } = await sb.auth.mfa.getAuthenticatorAssuranceLevel();
+  // Haal AAL op — met retry voor Safari die soms null teruggeeft na verse signIn
+  let aal = null;
+  for (let attempt = 0; attempt < 3; attempt++) {
+    const { data } = await sb.auth.mfa.getAuthenticatorAssuranceLevel();
+    if (data) { aal = data; break; }
+    await new Promise(r => setTimeout(r, 200));
+  }
   cpvLog('AAL:', JSON.stringify(aal));
-  const needsMfa = aal?.nextLevel === 'aal2' && aal?.currentLevel !== 'aal2';
-  cpvLog('needsMfa=', needsMfa);
+
+  // Haal TOTP-factors op om te bepalen of de gebruiker 2FA heeft ingesteld
+  const { data: factors } = await sb.auth.mfa.listFactors();
+  const totpFactor = factors?.totp?.[0];
+  cpvLog('Factors:', JSON.stringify(factors));
+
+  // needsMfa: gebruiker heeft een TOTP factor én is nog niet op aal2
+  // Bij twijfel (aal = null) en een bekende TOTP factor: eis MFA
+  const currentLevel = aal?.currentLevel;
+  const nextLevel    = aal?.nextLevel;
+  const needsMfa = totpFactor && (currentLevel !== 'aal2' || nextLevel === 'aal2');
+  cpvLog('needsMfa=', needsMfa, 'currentLevel=', currentLevel, 'nextLevel=', nextLevel);
 
   if (needsMfa) {
     if (!afterLogin) {
@@ -1888,16 +1904,11 @@ async function checkAuth(afterLogin = false) {
       showLoginScreen();
       return;
     }
-    cpvLog('Fresh login needs MFA — fetching factors');
-    const { data: factors } = await sb.auth.mfa.listFactors();
-    cpvLog('Factors:', JSON.stringify(factors));
-    const totp = factors?.totp?.[0];
-    if (totp) {
-      totpFactorId = totp.id;
-      showAuthScreen();
-      showTotpScreen();
-      return;
-    }
+    cpvLog('Fresh login needs MFA — showing TOTP screen');
+    totpFactorId = totpFactor.id;
+    showAuthScreen();
+    showTotpScreen();
+    return;
   }
 
   cpvLog('Auth complete, loading app');
