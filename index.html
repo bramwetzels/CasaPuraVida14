@@ -596,6 +596,7 @@ tr.cancelled td { opacity: 0.45; }
             <div style="text-align:right">
               <div style="font-size:10px;color:var(--text-faint);font-weight:500;margin-bottom:2px">huurinkomsten</div>
               <div id="bz-year-revenue" style="font-size:13px;font-weight:600;color:var(--text)">—</div>
+              <div id="bz-year-avg" style="font-size:11px;color:var(--text-faint);margin-top:2px"></div>
             </div>
           </div>
           <div style="font-size:11px;font-weight:600;color:var(--text-faint);text-transform:uppercase;letter-spacing:.04em;margin-bottom:10px">Per maand</div>
@@ -2597,12 +2598,17 @@ function renderBezettingPage() {
   document.getElementById('bz-year-revenue').textContent = totalRevenue > 0
     ? '€\u00a0' + totalRevenue.toLocaleString('nl-NL')
     : '—';
+  const avgNightYear = bookedNights > 0 && totalRevenue > 0 ? Math.round(totalRevenue / bookedNights) : 0;
+  const avgEl = document.getElementById('bz-year-avg');
+  if (avgEl) avgEl.textContent = avgNightYear > 0 ? '€\u00a0' + avgNightYear.toLocaleString('nl-NL') + ' gem./nacht' : '';
   const MAANDEN_LANG = ['Januari','Februari','Maart','April','Mei','Juni','Juli','Augustus','September','Oktober','November','December'];
   grid.innerHTML = months.map(({month, daysInMonth, bookedNights: bn, revenue}) => {
     const p = daysInMonth > 0 ? bn / daysInMonth : 0;
     const color = p >= 0.8 ? 'var(--green-dark)' : p >= 0.5 ? 'var(--green)' : p > 0 ? 'var(--amber)' : 'var(--gray-300)';
     const revStr = revenue > 0 ? '€\u00a0' + revenue.toLocaleString('nl-NL') : '—';
     const revColor = revenue > 0 ? 'var(--text)' : 'var(--gray-300)';
+    const avgPerNight = bn > 0 && revenue > 0 ? Math.round(revenue / bn) : 0;
+    const avgStr = avgPerNight > 0 ? '€\u00a0' + avgPerNight.toLocaleString('nl-NL') : '—';
     return `<div style="background:var(--gray-50);border-radius:10px;padding:14px 16px">
       <div style="font-size:12px;font-weight:600;color:var(--text);margin-bottom:8px">${MAANDEN_LANG[month]}</div>
       <div style="height:8px;background:var(--gray-200);border-radius:99px;overflow:hidden;margin-bottom:8px">
@@ -2615,6 +2621,10 @@ function renderBezettingPage() {
       <div style="margin-top:6px;padding-top:6px;border-top:1px solid var(--border)">
         <div style="font-size:10px;color:var(--text-faint);font-weight:500;margin-bottom:2px">huurinkomsten</div>
         <div style="font-size:12px;font-weight:600;color:${revColor}">${revStr}</div>
+      </div>
+      <div style="margin-top:4px">
+        <div style="font-size:10px;color:var(--text-faint);font-weight:500;margin-bottom:2px">gem. per nacht</div>
+        <div style="font-size:12px;font-weight:600;color:${avgPerNight > 0 ? 'var(--text-muted)' : 'var(--gray-300)'}">${avgStr}</div>
       </div>
     </div>`;
   }).join('');
