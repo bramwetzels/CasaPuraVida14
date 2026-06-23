@@ -1834,7 +1834,7 @@ let totpAttempts = 0;
 const TOTP_MAX_ATTEMPTS = 5;
 let totpTimeoutHandle = null;
 const TOTP_TIMEOUT_MS = 5 * 60 * 1000; // 5 minuten
-const CPV_DEBUG = false; // zet op true voor auth-logging in de console
+const CPV_DEBUG = true; // zet op true voor auth-logging in de console
 const cpvLog = (...args) => { if (CPV_DEBUG) console.log('[CPV]', ...args); };
 let appLoaded    = false;
 
