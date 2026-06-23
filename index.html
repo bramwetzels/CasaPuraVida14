@@ -1895,7 +1895,7 @@ async function checkAuth(afterLogin = false) {
   // Bij twijfel (aal = null) en een bekende TOTP factor: eis MFA
   const currentLevel = aal?.currentLevel;
   const nextLevel    = aal?.nextLevel;
-  const needsMfa = totpFactor && (currentLevel !== 'aal2' || nextLevel === 'aal2');
+  const needsMfa = totpFactor && currentLevel !== 'aal2';
   cpvLog('needsMfa=', needsMfa, 'currentLevel=', currentLevel, 'nextLevel=', nextLevel);
 
   if (needsMfa) {
