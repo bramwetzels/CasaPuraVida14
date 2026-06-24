@@ -603,6 +603,41 @@ tr.cancelled td { opacity: 0.45; }
           <div id="bz-month-grid" style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px"></div>
         </div>
       </div>
+
+      <!-- PERIODEANALYSE -->
+      <div class="section" style="margin-top:16px">
+        <div class="section-header"><div class="section-title">Periodeanalyse</div></div>
+        <div style="padding:16px 18px">
+          <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:4px">
+            <div style="display:flex;align-items:center;gap:8px">
+              <label style="font-size:11px;font-weight:600;color:var(--text-faint);text-transform:uppercase;letter-spacing:.04em;white-space:nowrap">Van</label>
+              <input type="date" id="periode-van" class="field-val editable" style="padding:5px 8px;font-size:12px;border:1px solid var(--border-strong);border-radius:6px;font-family:var(--font)">
+            </div>
+            <div style="display:flex;align-items:center;gap:8px">
+              <label style="font-size:11px;font-weight:600;color:var(--text-faint);text-transform:uppercase;letter-spacing:.04em;white-space:nowrap">T/m</label>
+              <input type="date" id="periode-tm" class="field-val editable" style="padding:5px 8px;font-size:12px;border:1px solid var(--border-strong);border-radius:6px;font-family:var(--font)">
+            </div>
+            <button class="btn btn-primary" onclick="berekenPeriode()">Berekenen</button>
+          </div>
+          <div style="font-size:11px;color:var(--text-faint);margin-bottom:16px">Tip: kies bijv. 1 november t/m 30 april om meerdere winterseizoen te vergelijken.</div>
+          <div id="periode-resultaat" style="display:none">
+            <table style="width:100%;border-collapse:collapse;font-size:12px">
+              <thead>
+                <tr style="border-bottom:2px solid var(--border-strong)">
+                  <th style="text-align:left;padding:8px 12px;color:var(--text-faint);font-weight:600;font-size:11px;text-transform:uppercase;letter-spacing:.04em">Periode</th>
+                  <th style="text-align:right;padding:8px 12px;color:var(--text-faint);font-weight:600;font-size:11px;text-transform:uppercase;letter-spacing:.04em">Boekingen</th>
+                  <th style="text-align:right;padding:8px 12px;color:var(--text-faint);font-weight:600;font-size:11px;text-transform:uppercase;letter-spacing:.04em">Nachten</th>
+                  <th style="text-align:right;padding:8px 12px;color:var(--text-faint);font-weight:600;font-size:11px;text-transform:uppercase;letter-spacing:.04em">Huurinkomsten</th>
+                  <th style="text-align:right;padding:8px 12px;color:var(--text-faint);font-weight:600;font-size:11px;text-transform:uppercase;letter-spacing:.04em">Gem. per nacht</th>
+                </tr>
+              </thead>
+              <tbody id="periode-body"></tbody>
+              <tfoot id="periode-foot"></tfoot>
+            </table>
+          </div>
+          <div id="periode-leeg" style="display:none;color:var(--text-faint);font-size:12px;padding:8px 0">Geen boekingen gevonden in deze periode.</div>
+        </div>
+      </div>
     </div>
 
   </div>
@@ -2632,6 +2667,110 @@ function renderBezettingPage() {
 
 function bezettingPrevYear() { bezettingYear--; renderBezettingPage(); }
 function bezettingNextYear() { bezettingYear++; renderBezettingPage(); }
+
+function berekenPeriode() {
+  const vanVal = document.getElementById('periode-van').value;
+  const tmVal  = document.getElementById('periode-tm').value;
+  const resultDiv = document.getElementById('periode-resultaat');
+  const leegDiv   = document.getElementById('periode-leeg');
+  if (!vanVal || !tmVal) { alert('Vul beide datums in.'); return; }
+
+  const vanBase = new Date(vanVal + 'T00:00:00');
+  const tmBase  = new Date(tmVal  + 'T00:00:00');
+  if (tmBase <= vanBase) { alert('Einddatum moet na begindatum liggen.'); return; }
+
+  // Bepaal span in maanden/dagen: van → t/m (inclusief)
+  const spanMs = tmBase - vanBase + 86400000; // +1 dag zodat t/m inclusief is
+  const vanMonth = vanBase.getMonth();      // 0-based
+  const vanDay   = vanBase.getDate();
+  const tmMonth  = tmBase.getMonth();
+  const tmDay    = tmBase.getDate();
+  const vanYear  = vanBase.getFullYear();
+  const tmYear   = tmBase.getFullYear();
+
+  // Bouw de seizoensperioden: dezelfde maand/dag-combinatie per jaar
+  // Startjaar is het jaar van de opgegeven begindatum, eindjaar zo ver als we data hebben
+  const allYears = bookings.filter(b => !b.isCancelled && b.start)
+    .map(b => b.start.getFullYear());
+  if (allYears.length === 0) { resultDiv.style.display='none'; leegDiv.style.display='block'; return; }
+  const minYear = Math.min(...allYears);
+  const maxYear = Math.max(...allYears);
+
+  // Periodes: van (jaar X, vanMonth, vanDay) t/m (jaar X + yearOffset, tmMonth, tmDay + 1 dag)
+  // yearOffset = tmYear - vanYear (bijv. nov→apr = +1 jaar)
+  const yearOffset = tmYear - vanYear;
+  const seizoenen = [];
+  for (let y = minYear; y <= maxYear; y++) {
+    const pStart = new Date(y,              vanMonth, vanDay);
+    const pEnd   = new Date(y + yearOffset, tmMonth,  tmDay + 1); // exclusief einddag + 1
+    seizoenen.push({ startYear: y, pStart, pEnd });
+  }
+
+  const MAANDEN = ['jan','feb','mrt','apr','mei','jun','jul','aug','sep','okt','nov','dec'];
+  const rows = [];
+
+  seizoenen.forEach(({ startYear, pStart, pEnd }) => {
+    // Verzamel boekingen die overlappen met de periode
+    const rel = bookings.filter(b => !b.isCancelled && b.start && b.end
+      && b.start < pEnd && b.end > pStart);
+    if (rel.length === 0) return;
+
+    // Unieke nachten (Set) + revenue pro-rata
+    const bookedDays = new Set();
+    let revenue = 0;
+    const bookingIds = new Set();
+    rel.forEach(b => {
+      bookingIds.add(b.id);
+      const s = b.start < pStart ? pStart : b.start;
+      const e = b.end   > pEnd   ? pEnd   : b.end;
+      const nightsInPeriod = Math.round((e - s) / 86400000);
+      if (nightsInPeriod <= 0) return;
+      const totalNights = Math.round((b.end - b.start) / 86400000);
+      const price = parseFloat(b.price) || 0;
+      if (totalNights > 0 && price > 0) revenue += price * (nightsInPeriod / totalNights);
+      const cur = new Date(s);
+      while (cur < e) {
+        bookedDays.add(cur.toISOString().slice(0, 10));
+        cur.setDate(cur.getDate() + 1);
+      }
+    });
+
+    const nachten = bookedDays.size;
+    const rev = Math.round(revenue);
+    const avg = nachten > 0 && rev > 0 ? Math.round(rev / nachten) : 0;
+    const label = `${vanDay} ${MAANDEN[vanMonth]} ${startYear} – ${tmDay} ${MAANDEN[tmMonth]} ${startYear + yearOffset}`;
+    rows.push({ label, bookings: bookingIds.size, nachten, rev, avg });
+  });
+
+  if (rows.length === 0) { resultDiv.style.display='none'; leegDiv.style.display='block'; return; }
+  leegDiv.style.display = 'none';
+  resultDiv.style.display = 'block';
+
+  const fmt = n => n > 0 ? '€\u00a0' + n.toLocaleString('nl-NL') : '—';
+  const tbody = document.getElementById('periode-body');
+  tbody.innerHTML = rows.map(r => `
+    <tr style="border-bottom:1px solid var(--border)">
+      <td style="padding:9px 12px;font-weight:500">${r.label}</td>
+      <td style="padding:9px 12px;text-align:right;font-family:var(--mono)">${r.bookings}</td>
+      <td style="padding:9px 12px;text-align:right;font-family:var(--mono)">${r.nachten}</td>
+      <td style="padding:9px 12px;text-align:right;font-family:var(--mono);font-weight:600;color:var(--text)">${fmt(r.rev)}</td>
+      <td style="padding:9px 12px;text-align:right;font-family:var(--mono);color:var(--text-muted)">${fmt(r.avg)}</td>
+    </tr>`).join('');
+
+  // Totaalrij
+  const totB = rows.reduce((s,r) => s + r.bookings, 0);
+  const totN = rows.reduce((s,r) => s + r.nachten, 0);
+  const totR = rows.reduce((s,r) => s + r.rev, 0);
+  const totA = totN > 0 && totR > 0 ? Math.round(totR / totN) : 0;
+  document.getElementById('periode-foot').innerHTML = rows.length > 1 ? `
+    <tr style="border-top:2px solid var(--border-strong);background:var(--gray-50)">
+      <td style="padding:9px 12px;font-weight:700">Totaal</td>
+      <td style="padding:9px 12px;text-align:right;font-family:var(--mono);font-weight:700">${totB}</td>
+      <td style="padding:9px 12px;text-align:right;font-family:var(--mono);font-weight:700">${totN}</td>
+      <td style="padding:9px 12px;text-align:right;font-family:var(--mono);font-weight:700;color:var(--green)">${fmt(totR)}</td>
+      <td style="padding:9px 12px;text-align:right;font-family:var(--mono);font-weight:600;color:var(--text-muted)">${fmt(totA)}</td>
+    </tr>` : '';
+}
 
 // ─── INIT ─────────────────────────────────────────────────────────────────────
 // Wait for Supabase CDN to load, then init
