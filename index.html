@@ -1955,7 +1955,7 @@ async function checkAuth(afterLogin = false) {
     await new Promise(r => setTimeout(r, 200));
   }
   const totpFactor = factorsData?.totp?.[0];
-  cpvLog('Factors:', JSON.stringify(factors));
+  cpvLog('Factors:', JSON.stringify(factorsData));
 
   // needsMfa: gebruiker heeft een TOTP factor én is nog niet op aal2
   // Bij twijfel (aal = null) en een bekende TOTP factor: eis MFA
