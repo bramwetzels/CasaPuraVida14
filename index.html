@@ -1869,6 +1869,32 @@ let totpAttempts = 0;
 const TOTP_MAX_ATTEMPTS = 5;
 let totpTimeoutHandle = null;
 const TOTP_TIMEOUT_MS = 5 * 60 * 1000; // 5 minuten
+const INACTIVITY_MS = 10 * 60 * 1000; // 10 minuten inactiviteit → herlogin
+let inactivityHandle = null;
+
+function resetInactivityTimer() {
+  clearTimeout(inactivityHandle);
+  inactivityHandle = setTimeout(async () => {
+    cpvLog('Inactiviteitstimer verlopen — uitloggen');
+    await sb.auth.signOut(); // triggert onAuthStateChange → showLoginScreen
+  }, INACTIVITY_MS);
+}
+
+function startInactivityWatch() {
+  ['mousemove', 'mousedown', 'keydown', 'touchstart', 'scroll'].forEach(ev =>
+    document.addEventListener(ev, resetInactivityTimer, { passive: true })
+  );
+  resetInactivityTimer();
+}
+
+function stopInactivityWatch() {
+  clearTimeout(inactivityHandle);
+  inactivityHandle = null;
+  ['mousemove', 'mousedown', 'keydown', 'touchstart', 'scroll'].forEach(ev =>
+    document.removeEventListener(ev, resetInactivityTimer)
+  );
+}
+
 const CPV_DEBUG = false; // zet op true voor auth-logging in de console
 const cpvLog = (...args) => { if (CPV_DEBUG) console.log('[CPV]', ...args); };
 let appLoaded    = false;
@@ -1921,9 +1947,14 @@ async function checkAuth(afterLogin = false) {
   }
   cpvLog('AAL:', JSON.stringify(aal));
 
-  // Haal TOTP-factors op om te bepalen of de gebruiker 2FA heeft ingesteld
-  const { data: factors } = await sb.auth.mfa.listFactors();
-  const totpFactor = factors?.totp?.[0];
+  // Haal TOTP-factors op — met retry voor trage responses (zelfde patroon als AAL)
+  let factorsData = null;
+  for (let attempt = 0; attempt < 3; attempt++) {
+    const { data } = await sb.auth.mfa.listFactors();
+    if (data) { factorsData = data; break; }
+    await new Promise(r => setTimeout(r, 200));
+  }
+  const totpFactor = factorsData?.totp?.[0];
   cpvLog('Factors:', JSON.stringify(factors));
 
   // needsMfa: gebruiker heeft een TOTP factor én is nog niet op aal2
@@ -1965,6 +1996,7 @@ function showApp() {
   document.getElementById('kh-email-display').textContent = settings.keyholderEmail;
   const nameEl = document.getElementById('user-name-display');
   if (nameEl) nameEl.textContent = currentProfile?.full_name || currentUser?.email || '';
+  startInactivityWatch();
   render();
   initMonthPricesGrid();
   initAvailDates();
@@ -1976,6 +2008,7 @@ function showAuthScreen() {
 }
 
 function showLoginScreen() {
+  stopInactivityWatch();
   clearTimeout(totpTimeoutHandle);
   totpAttempts = 0;
   showAuthScreen();
@@ -1985,6 +2018,7 @@ function showLoginScreen() {
 }
 
 function showTotpScreen() {
+  stopInactivityWatch();
   document.getElementById('auth-form').style.display = 'none';
   document.getElementById('totp-form').style.display = 'block';
   document.getElementById('totp-code').value = '';
