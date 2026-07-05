@@ -283,6 +283,13 @@ tr.cancelled td { opacity: 0.45; }
 </div>
 
 <div class="app" id="app-root" style="display:none">
+
+  <!-- INACTIVITEITSWAARSCHUWING -->
+  <div id="inactivity-warning" style="display:none;position:fixed;top:0;left:0;right:0;z-index:9999;background:#b45309;color:white;text-align:center;padding:10px 16px;font-size:13px;font-weight:600;font-family:var(--font);box-shadow:0 2px 8px rgba(0,0,0,0.2);">
+    ⚠️ Je wordt over <span id="inactivity-countdown">60</span> seconden uitgelogd wegens inactiviteit.
+    <button onclick="resetInactivityTimer();hideInactivityWarning()" style="margin-left:12px;padding:4px 12px;background:white;color:#b45309;border:none;border-radius:6px;font-size:12px;font-weight:700;cursor:pointer;">Ik ben er nog</button>
+  </div>
+
   <!-- SIDEBAR -->
   <div class="sidebar">
     <div class="sidebar-logo">
@@ -1869,11 +1876,38 @@ let totpAttempts = 0;
 const TOTP_MAX_ATTEMPTS = 5;
 let totpTimeoutHandle = null;
 const TOTP_TIMEOUT_MS = 5 * 60 * 1000; // 5 minuten
-const INACTIVITY_MS = 10 * 60 * 1000; // 10 minuten inactiviteit → herlogin
+const INACTIVITY_MS = 10 * 60 * 1000;    // 10 minuten inactiviteit → herlogin
+const INACTIVITY_WARN_MS = 9 * 60 * 1000; // waarschuwing na 9 minuten
 let inactivityHandle = null;
+let inactivityWarnHandle = null;
+let inactivityCountdownHandle = null;
+
+function showInactivityWarning() {
+  const bar = document.getElementById('inactivity-warning');
+  if (bar) {
+    let secs = 60;
+    document.getElementById('inactivity-countdown').textContent = secs;
+    bar.style.display = 'block';
+    inactivityCountdownHandle = setInterval(() => {
+      secs--;
+      const el = document.getElementById('inactivity-countdown');
+      if (el) el.textContent = secs;
+      if (secs <= 0) clearInterval(inactivityCountdownHandle);
+    }, 1000);
+  }
+}
+
+function hideInactivityWarning() {
+  clearInterval(inactivityCountdownHandle);
+  const bar = document.getElementById('inactivity-warning');
+  if (bar) bar.style.display = 'none';
+}
 
 function resetInactivityTimer() {
   clearTimeout(inactivityHandle);
+  clearTimeout(inactivityWarnHandle);
+  hideInactivityWarning();
+  inactivityWarnHandle = setTimeout(showInactivityWarning, INACTIVITY_WARN_MS);
   inactivityHandle = setTimeout(async () => {
     cpvLog('Inactiviteitstimer verlopen — uitloggen');
     await sb.auth.signOut(); // triggert onAuthStateChange → showLoginScreen
@@ -1889,7 +1923,10 @@ function startInactivityWatch() {
 
 function stopInactivityWatch() {
   clearTimeout(inactivityHandle);
+  clearTimeout(inactivityWarnHandle);
+  hideInactivityWarning();
   inactivityHandle = null;
+  inactivityWarnHandle = null;
   ['mousemove', 'mousedown', 'keydown', 'touchstart', 'scroll'].forEach(ev =>
     document.removeEventListener(ev, resetInactivityTimer)
   );
@@ -2094,6 +2131,7 @@ async function handleTotpVerify() {
       return;
     }
     totpAttempts = 0;
+    clearTimeout(totpTimeoutHandle);
     await checkAuth(true);
   } catch(e) {
     errEl.textContent = 'Er ging iets mis.';
