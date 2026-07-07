@@ -491,6 +491,14 @@ tr.cancelled td { opacity: 0.45; }
             <div class="field-label" style="margin-bottom:6px;font-size:11px;font-weight:600;color:var(--text-faint);text-transform:uppercase;letter-spacing:.04em">Dagen voor aankomst voor communicatie</div>
             <input type="number" id="days-before" value="27" class="field-val editable" min="1" max="60" oninput="saveSettings()">
           </div>
+          <div>
+            <div class="field-label" style="margin-bottom:6px;font-size:11px;font-weight:600;color:var(--text-faint);text-transform:uppercase;letter-spacing:.04em">Schoonmaakkosten en linnengoed (standaardbedrag)</div>
+            <input type="number" id="cleaning-cost" value="0" class="field-val editable" min="0" step="0.01" oninput="saveSettings()"> €
+          </div>
+          <div>
+            <div class="field-label" style="margin-bottom:6px;font-size:11px;font-weight:600;color:var(--text-faint);text-transform:uppercase;letter-spacing:.04em">Borgsom (vast bedrag)</div>
+            <input type="number" id="deposit-amount" value="0" class="field-val editable" min="0" step="0.01" oninput="saveSettings()"> €
+          </div>
 
           <button class="btn btn-primary" onclick="clearHistory()">Geschiedenis wissen (reset eerste-upload)</button>
         </div>
@@ -677,7 +685,7 @@ let currentProfile = null;
 // ─── STATE ─────────────────────────────────────────────────────────────────
 let bookings = [];
 let sentLog = {};
-let settings = { keyholderEmail: 'info@vettschoon.com', keyholderPhone: '34689424557', senderName: 'Bram', giftThreshold: 4, daysBefore: 27 };
+let settings = { keyholderEmail: 'info@vettschoon.com', keyholderPhone: '34689424557', senderName: 'Bram', giftThreshold: 4, daysBefore: 27, cleaningCost: 0, depositAmount: 0 };
 let isFirstUpload = false;
 let prevBookingIds = [];
 let currentFilter = 'alle';
@@ -695,6 +703,7 @@ let editedChildren = {};
 let editedWelcome = {};
 let editedEmail = {};
 let editedPhone = {};
+let editedCommission = {};
 
 // ─── SUPABASE DATA LOADING ──────────────────────────────────────────────────
 async function loadStorage() {
@@ -708,6 +717,8 @@ async function loadStorage() {
         if (r.key === 'senderName') settings.senderName = r.value;
         if (r.key === 'giftThreshold') settings.giftThreshold = parseInt(r.value)||4;
         if (r.key === 'daysBefore') settings.daysBefore = parseInt(r.value)||27;
+        if (r.key === 'cleaningCost') settings.cleaningCost = parseFloat(r.value)||0;
+        if (r.key === 'depositAmount') settings.depositAmount = parseFloat(r.value)||0;
       });
     }
     // Load sent log
@@ -738,6 +749,7 @@ async function loadStorage() {
         if (r.phone !== null) editedPhone[r.booking_id] = r.phone;
         if (r.welcome_gift !== null) editedWelcome[r.booking_id] = r.welcome_gift;
         if (r.admin_link !== null) editedLink[r.booking_id] = r.admin_link;
+        if (r.commission !== null) editedCommission[r.booking_id] = r.commission;
       });
     }
     // Load month prices
@@ -816,19 +828,23 @@ async function saveSettings() {
   settings.senderName = document.getElementById('sender-name').value;
   settings.giftThreshold = parseInt(document.getElementById('gift-threshold').value)||4;
   settings.daysBefore = parseInt(document.getElementById('days-before').value)||27;
+  settings.cleaningCost = parseFloat(document.getElementById('cleaning-cost').value)||0;
+  settings.depositAmount = parseFloat(document.getElementById('deposit-amount').value)||0;
   const rows = [
     { key: 'keyholderEmail', value: settings.keyholderEmail },
     { key: 'keyholderPhone', value: settings.keyholderPhone },
     { key: 'senderName', value: settings.senderName },
     { key: 'giftThreshold', value: String(settings.giftThreshold) },
     { key: 'daysBefore', value: String(settings.daysBefore) },
+    { key: 'cleaningCost', value: String(settings.cleaningCost) },
+    { key: 'depositAmount', value: String(settings.depositAmount) },
   ];
   for (const r of rows) await sb.from('settings').upsert({ ...r, updated_by: currentUser?.id }, { onConflict: 'key' });
   document.getElementById('kh-email-display').textContent = settings.keyholderEmail;
 }
 async function saveBookingField(id, field, value) {
   const colMap = { price:'price', source:'source', adults:'adults', children:'children',
-    country:'country', email:'email', phone:'phone', welcome:'welcome_gift', link:'admin_link' };
+    country:'country', email:'email', phone:'phone', welcome:'welcome_gift', link:'admin_link', commission:'commission' };
   const col = colMap[field];
   if (!col) return;
   const { data: existing, error: selErr } = await sb.from('bookings_data').select('booking_id').eq('booking_id', id).maybeSingle();
@@ -952,6 +968,10 @@ function processBookings(rows) {
     const created = parseDate(r.booking_create);
     const nights = nightsBetween(start, end);
     const price = editedPrices[id] !== undefined ? editedPrices[id] : Math.max(0, parsePrice(r.price_rent) - parsePrice(r.price_discount));
+    const rentGross = parsePrice(r.price_rent);
+    const discount = parsePrice(r.price_discount);
+    const deposit = parsePrice(r.price_deposit);
+    const commission = editedCommission[id] !== undefined ? editedCommission[id] : 0;
     const service = parsePrice(r.price_services);
     const total = parsePrice(r.price_booking);
     const paid = parsePrice(r.payment_recieved);
@@ -976,7 +996,7 @@ function processBookings(rows) {
     const isEigen = statusLow.includes("eigen") || (!isCancelled && (nameLow.includes("closed") || nameLow.startsWith("reserved") || (nameLow==="" && !statusLow.includes("bevestigd") && !statusLow.includes("voorlopig"))));
     const welcomeGift = editedWelcome[id] !== undefined ? editedWelcome[id] : (nights >= settings.giftThreshold && !isEigen);
     const name = isEigen ? "Eigen gebruik" : guestName(r);
-    return { id, src, start, end, created, nights, price, service, total, paid, adults, children, persons, country, email, phone, langCode, notes, checkinHour, checkoutHour, lateCheckin, name, status: r.booking_status, isEigen, isCancelled, welcomeGift, raw: r };
+    return { id, src, start, end, created, nights, price, rentGross, discount, deposit, commission, service, total, paid, adults, children, persons, country, email, phone, langCode, notes, checkinHour, checkoutHour, lateCheckin, name, status: r.booking_status, isEigen, isCancelled, welcomeGift, raw: r };
   }).filter(b => b.start);
 }
 
@@ -1444,9 +1464,9 @@ function openBookingDetail(id) {
   document.getElementById('panel-guest').textContent = b.name;
   document.getElementById('panel-dates').textContent = `${fmtDate(b.start)} → ${fmtDate(b.end)} · ${b.nights} nachten`;
 
-  const schoonmaakLinnengoed = b.service;
-  const commission = b.src==='booking' ? b.price*0.15 : b.src==='airbnb' ? b.price*0.03 : 0;
-  const nettoNaCommissie = b.price - schoonmaakLinnengoed - commission;
+  const schoonmaakLinnengoed = settings.cleaningCost;
+  const borgsom = settings.depositAmount;
+  const isWebsite = b.src === 'website';
 
   document.getElementById('panel-body').innerHTML = `
     <div class="panel-section">
@@ -1507,14 +1527,18 @@ function openBookingDetail(id) {
     <div class="panel-section">
       <div class="panel-section-title">Financieel overzicht</div>
       <table class="fin-table">
-        <tr><td class="label">Huurprijs</td><td class="amount">
-          <input type="number" class="field-val editable" style="width:90px;text-align:right;padding:3px 6px;" value="${b.price.toFixed(2)}" oninput="updatePrice('${id}',this.value)"> €
+        <tr><td class="label">Huursom</td><td class="amount">€ ${b.rentGross.toFixed(2)}</td></tr>
+        ${isWebsite ? `
+        <tr><td class="label">Korting</td><td class="amount negative">− € ${b.discount.toFixed(2)}</td></tr>
+        <tr><td class="label">Aanbetaling</td><td class="amount">€ ${b.deposit.toFixed(2)}</td></tr>
+        <tr><td class="label">Borgsom</td><td class="amount">€ ${borgsom.toFixed(2)}</td></tr>
+        ` : `
+        <tr><td class="label">Commissie ${sourceLabel(b.src)}</td><td class="amount negative">
+          − <input type="number" class="field-val editable" style="width:90px;text-align:right;padding:3px 6px;" value="${b.commission.toFixed(2)}" oninput="updateCommission('${id}',this.value)"> €
         </td></tr>
+        `}
         <tr><td class="label">Schoonmaakkosten en linnengoed</td><td class="amount negative">− € ${schoonmaakLinnengoed.toFixed(2)}</td></tr>
-        ${commission>0?`<tr><td class="label">Commissie ${sourceLabel(b.src)}</td><td class="amount negative">− € ${commission.toFixed(2)}</td></tr>`:''}
-        <tr><td class="label">Netto inkomsten</td><td class="amount total">€ ${nettoNaCommissie.toFixed(2)}</td></tr>
-        <tr><td class="label">Betaald</td><td class="amount">€ ${b.paid.toFixed(2)}</td></tr>
-        <tr><td class="label">Restbedrag</td><td class="amount ${(b.total-b.paid)>0?'negative':''}">${(b.total-b.paid)>0?'− ':''}€ ${Math.abs(b.total-b.paid).toFixed(2)}</td></tr>
+        <tr><td class="label">Netto inkomsten</td><td class="amount total">€ ${b.rentGross.toFixed(2)}</td></tr>
       </table>
     </div>
     <hr class="divider">
@@ -1613,6 +1637,7 @@ function sentCellHtml(sent, ts, isEigen, isCancelled) {
   return '<span style="color:var(--text-faint);font-size:13px">✗</span>';
 }
 function updatePrice(id, val) { editedPrices[id]=parseFloat(val)||0; saveBookingField(id,'price',editedPrices[id]); }
+function updateCommission(id, val) { editedCommission[id]=parseFloat(val)||0; saveBookingField(id,'commission',editedCommission[id]); }
 function updateSource(id, val) { editedSources[id]=val; saveBookingField(id,'source',val); bookings=bookings.map(b=>b.id===id?{...b,src:val}:b); renderTable(); }
 function updateAdults(id, val) {
   editedAdults[id]=val===''?'':parseInt(val)||0; saveBookingField(id,'adults',editedAdults[id]);
@@ -2056,6 +2081,8 @@ function showApp() {
   document.getElementById('sender-name').value = settings.senderName;
   document.getElementById('gift-threshold').value = settings.giftThreshold;
   document.getElementById('days-before').value = settings.daysBefore;
+  document.getElementById('cleaning-cost').value = settings.cleaningCost;
+  document.getElementById('deposit-amount').value = settings.depositAmount;
   document.getElementById('kh-email-display').textContent = settings.keyholderEmail;
   const nameEl = document.getElementById('user-name-display');
   if (nameEl) nameEl.textContent = currentProfile?.full_name || currentUser?.email || '';
@@ -2877,3 +2904,4 @@ window.__cpvInit = function() { init(); };
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2" onload="window.__cpvInit()"></script>
 </body>
 </html>
+  
