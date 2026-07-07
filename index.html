@@ -476,6 +476,10 @@ tr.cancelled td { opacity: 0.45; }
             <input type="email" id="kh-email-input" value="info@vettschoon.com" class="field-val editable" placeholder="keyholder@email.com" oninput="saveSettings()">
           </div>
           <div>
+            <div class="field-label" style="margin-bottom:6px;font-size:11px;font-weight:600;color:var(--text-faint);text-transform:uppercase;letter-spacing:.04em">WhatsApp-nummer keyholder</div>
+            <input type="text" id="kh-phone-input" value="34689424557" class="field-val editable" placeholder="landcode+nummer, bv. 34689424557" oninput="saveSettings()">
+          </div>
+          <div>
             <div class="field-label" style="margin-bottom:6px;font-size:11px;font-weight:600;color:var(--text-faint);text-transform:uppercase;letter-spacing:.04em">Naam afzender</div>
             <input type="text" id="sender-name" value="Bram" class="field-val editable" placeholder="Jouw naam" oninput="saveSettings()">
           </div>
@@ -673,7 +677,7 @@ let currentProfile = null;
 // ─── STATE ─────────────────────────────────────────────────────────────────
 let bookings = [];
 let sentLog = {};
-let settings = { keyholderEmail: 'info@vettschoon.com', senderName: 'Bram', giftThreshold: 4, daysBefore: 27 };
+let settings = { keyholderEmail: 'info@vettschoon.com', keyholderPhone: '34689424557', senderName: 'Bram', giftThreshold: 4, daysBefore: 27 };
 let isFirstUpload = false;
 let prevBookingIds = [];
 let currentFilter = 'alle';
@@ -700,6 +704,7 @@ async function loadStorage() {
     if (settingsData) {
       settingsData.forEach(r => {
         if (r.key === 'keyholderEmail') settings.keyholderEmail = r.value;
+        if (r.key === 'keyholderPhone') settings.keyholderPhone = r.value;
         if (r.key === 'senderName') settings.senderName = r.value;
         if (r.key === 'giftThreshold') settings.giftThreshold = parseInt(r.value)||4;
         if (r.key === 'daysBefore') settings.daysBefore = parseInt(r.value)||27;
@@ -807,11 +812,13 @@ async function savePrevIds() {
 }
 async function saveSettings() {
   settings.keyholderEmail = document.getElementById('kh-email-input').value;
+  settings.keyholderPhone = document.getElementById('kh-phone-input').value;
   settings.senderName = document.getElementById('sender-name').value;
   settings.giftThreshold = parseInt(document.getElementById('gift-threshold').value)||4;
   settings.daysBefore = parseInt(document.getElementById('days-before').value)||27;
   const rows = [
     { key: 'keyholderEmail', value: settings.keyholderEmail },
+    { key: 'keyholderPhone', value: settings.keyholderPhone },
     { key: 'senderName', value: settings.senderName },
     { key: 'giftThreshold', value: String(settings.giftThreshold) },
     { key: 'daysBefore', value: String(settings.daysBefore) },
@@ -1369,21 +1376,39 @@ function buildGuestDraft(b, lang, sender, link) {
     const linkLine = link ? link : '[Voeg hier de link van het guest admin tool in]';
     return '\n\n' + txt + '\n' + linkLine + '\n\n';
   }
+  function getCheckinBlock(lang) {
+    const waLink = 'https://wa.me/' + (settings.keyholderPhone || '34689424557');
+    const txt = {
+      nl: `De inchecktijd is normaal gesproken vanaf 15:00 uur. Heeft u liever een andere tijd, laat het ons dan gerust weten, dan bekijken we of dit mogelijk is.\n\nWilt u de dag vóór aankomst contact opnemen met onze keyholder Nick de Vette (Vettschoon) over uw verwachte aankomsttijd? Dit is belangrijk zodat hij u correct kan ontvangen. Stuur hem hiervoor een WhatsApp-bericht via: ${waLink}`,
+      en: `Check-in time is normally from 3:00 PM. If you would prefer a different time, please let us know and we will check whether this is possible.\n\nCould you please contact our keyholder Nick de Vette (Vettschoon) the day before arrival regarding your expected arrival time? This is important so he can receive you properly. Please send him a WhatsApp message via: ${waLink}`,
+      de: `Der Check-in ist normalerweise ab 15:00 Uhr möglich. Falls Sie einen anderen Zeitpunkt bevorzugen, lassen Sie es uns bitte wissen, dann prüfen wir, ob dies möglich ist.\n\nBitte nehmen Sie am Tag vor Ihrer Ankunft Kontakt mit unserem Schlüsselverwalter Nick de Vette (Vettschoon) bezüglich Ihrer voraussichtlichen Ankunftszeit auf. Dies ist wichtig, damit er Sie richtig empfangen kann. Senden Sie ihm dazu bitte eine WhatsApp-Nachricht über: ${waLink}`,
+      fr: `L'heure d'arrivée est normalement à partir de 15h00. Si vous préférez un autre horaire, merci de nous le faire savoir, nous vérifierons si cela est possible.\n\nMerci de contacter notre gestionnaire des clés Nick de Vette (Vettschoon) la veille de votre arrivée au sujet de votre heure d'arrivée prévue. C'est important afin qu'il puisse vous accueillir correctement. Veuillez lui envoyer un message WhatsApp via : ${waLink}`,
+      es: `La hora de entrada es normalmente a partir de las 15:00. Si prefiere otro horario, háganoslo saber y comprobaremos si es posible.\n\nLe pedimos que se ponga en contacto con nuestro responsable de llaves Nick de Vette (Vettschoon) el día antes de su llegada para informarle de su hora prevista de llegada. Esto es importante para que pueda recibirle correctamente. Por favor, envíele un mensaje de WhatsApp a través de: ${waLink}`,
+      sv: `Incheckning sker normalt från kl. 15:00. Om ni önskar en annan tid, meddela oss gärna så kontrollerar vi om det är möjligt.\n\nVänligen kontakta vår nyckelansvarige Nick de Vette (Vettschoon) dagen före ankomst angående er förväntade ankomsttid. Detta är viktigt så att han kan ta emot er på rätt sätt. Skicka honom gärna ett WhatsApp-meddelande via: ${waLink}`,
+      no: `Innsjekking er normalt fra kl. 15:00. Hvis dere ønsker et annet tidspunkt, gi oss gjerne beskjed, så sjekker vi om det er mulig.\n\nVennligst ta kontakt med vår nøkkelansvarlige Nick de Vette (Vettschoon) dagen før ankomst angående forventet ankomsttid. Dette er viktig slik at han kan ta imot dere på riktig måte. Send ham en WhatsApp-melding via: ${waLink}`,
+      da: `Indtjekning er normalt fra kl. 15:00. Hvis I foretrækker et andet tidspunkt, så lad os det endelig vide, så undersøger vi, om det er muligt.\n\nVi beder jer venligst kontakte vores nøgleansvarlige Nick de Vette (Vettschoon) dagen før ankomst angående jeres forventede ankomsttidspunkt. Dette er vigtigt, så han kan tage godt imod jer. Send ham venligst en WhatsApp-besked via: ${waLink}`,
+      it: `Il check-in è normalmente possibile dalle ore 15:00. Se preferite un altro orario, fatecelo sapere e verificheremo se è possibile.\n\nVi chiediamo di contattare il nostro responsabile delle chiavi Nick de Vette (Vettschoon) il giorno prima del vostro arrivo per comunicargli l'orario di arrivo previsto. È importante affinché possa accogliervi correttamente. Vi preghiamo di inviargli un messaggio WhatsApp tramite: ${waLink}`,
+      pl: `Zameldowanie odbywa się zazwyczaj od godziny 15:00. Jeśli preferują Państwo inną godzinę, prosimy o informację, a sprawdzimy, czy jest to możliwe.\n\nProsimy o kontakt z naszym opiekunem kluczy Nickiem de Vette (Vettschoon) dzień przed przyjazdem w sprawie przewidywanej godziny przyjazdu. Jest to ważne, aby mógł Państwa odpowiednio przyjąć. Prosimy wysłać mu wiadomość WhatsApp na: ${waLink}`,
+      sk: `Príchod je zvyčajne možný od 15:00. Ak preferujete iný čas, dajte nám prosím vedieť, radi preveríme, či je to možné.\n\nProsíme, kontaktujte deň pred príchodom nášho správcu kľúčov Nicka de Vette (Vettschoon) ohľadom vášho predpokladaného času príchodu. Je to dôležité, aby vás mohol riadne privítať. Pošlite mu prosím správu cez WhatsApp na: ${waLink}`,
+      sl: `Prijava je običajno mogoča od 15:00. Če želite drug čas, nas prosimo obvestite, pa preverimo, ali je to mogoče.\n\nProsimo, da dan pred prihodom kontaktirate našega upravitelja ključev Nicka de Vetteja (Vettschoon) glede pričakovanega časa prihoda. To je pomembno, da vas lahko ustrezno sprejme. Prosimo, pošljite mu sporočilo prek WhatsAppa na: ${waLink}`,
+    };
+    return (txt[lang] || txt['en']) + '\n\n';
+  }
   const guestSite = 'https://guests.casapuravida14.com';
   const greet = (b.name&&b.name!=='—') ? b.name.split(' ')[0] : '';
   const drafts = {
-    nl: `Beste${greet?' '+greet:''},\n\nWij verheugen ons erop u te mogen verwelkomen bij Casa Pura Vida 14 op ${fmtDate(b.start)}!\n\nOp onze gastenpagina vindt u alle informatie over uw verblijf:\n${guestSite}${getLinkBlock('nl')}Heeft u een specifiek aankomsttijdstip, een wens of een vraag? Neem gerust contact op.\n\nHartelijke groeten,\n${sender}\nCasa Pura Vida 14`,
-    en: `Dear${greet?' '+greet:''},\n\nWe are looking forward to welcoming you to Casa Pura Vida 14 on ${fmtDate(b.start)}!\n\nYou can find all information about your stay on our guest page:\n${guestSite}${getLinkBlock('en')}If you have a specific arrival time, a request or a question, please don't hesitate to get in touch.\n\nKind regards,\n${sender}\nCasa Pura Vida 14`,
-    de: `Liebe${greet?' '+greet:''},\n\nWir freuen uns, Sie am ${fmtDate(b.start)} bei Casa Pura Vida 14 begrüßen zu dürfen!\n\nAlle Informationen zu Ihrem Aufenthalt finden Sie auf unserer Gastseite:\n${guestSite}${getLinkBlock('de')}Bei Fragen oder besonderen Wünschen stehen wir Ihnen gerne zur Verfügung.\n\nHerzliche Grüße,\n${sender}\nCasa Pura Vida 14`,
-    fr: `Cher${greet?' '+greet:''},\n\nNous sommes ravis de vous accueillir à Casa Pura Vida 14 le ${fmtDate(b.start)} !\n\nRetrouvez toutes les informations sur votre séjour sur notre page dédiée aux voyageurs :\n${guestSite}${getLinkBlock('fr')}N'hésitez pas à nous contacter si vous avez des questions ou des souhaits particuliers.\n\nCordialement,\n${sender}\nCasa Pura Vida 14`,
-    es: `Estimado/a${greet?' '+greet:''},\n\n¡Nos complace darle la bienvenida a Casa Pura Vida 14 el ${fmtDate(b.start)}!\n\nEncuentre toda la información sobre su estancia en nuestra página para huéspedes:\n${guestSite}${getLinkBlock('es')}Si tiene alguna pregunta o deseo especial, no dude en ponerse en contacto con nosotros.\n\nUn cordial saludo,\n${sender}\nCasa Pura Vida 14`,
-    sv: `Hej${greet?' '+greet:''},\n\nVi ser fram emot att välkomna er till Casa Pura Vida 14 den ${fmtDate(b.start)}!\n\nAll information om er vistelse hittar ni på vår gästsida:\n${guestSite}${getLinkBlock('sv')}Har ni önskemål om ankomsttid eller andra frågor? Hör gärna av er!\n\nHjärtliga hälsningar,\n${sender}\nCasa Pura Vida 14`,
-    no: `Hei${greet?' '+greet:''},\n\nVi gleder oss til å ønske dere velkommen til Casa Pura Vida 14 den ${fmtDate(b.start)}!\n\nAll informasjon om oppholdet finner dere på vår gjesteside:\n${guestSite}${getLinkBlock('no')}Har dere spørsmål eller ønsker? Ta gjerne kontakt!\n\nMed vennlig hilsen,\n${sender}\nCasa Pura Vida 14`,
-    da: `Kære${greet?' '+greet:''},\n\nVi ser frem til at byde jer velkommen til Casa Pura Vida 14 den ${fmtDate(b.start)}!\n\nAl information om jeres ophold finder I på vores gæsteside:\n${guestSite}${getLinkBlock('da')}Hvis I har spørgsmål eller ønsker, er I meget velkomne til at kontakte os.\n\nVenlig hilsen,\n${sender}\nCasa Pura Vida 14`,
-    it: `Gentile${greet?' '+greet:''},\n\nSiamo lieti di darvi il benvenuto a Casa Pura Vida 14 il ${fmtDate(b.start)}!\n\nTutte le informazioni sul vostro soggiorno le trovate sulla nostra pagina per gli ospiti:\n${guestSite}${getLinkBlock('it')}Per qualsiasi domanda o richiesta, non esitate a contattarci.\n\nCordiali saluti,\n${sender}\nCasa Pura Vida 14`,
-    pl: `Drogi/a${greet?' '+greet:''},\n\nZ przyjemnością przywitamy Państwa w Casa Pura Vida 14 w dniu ${fmtDate(b.start)}!\n\nWszelkie informacje o pobycie znajdą Państwo na naszej stronie dla gości:\n${guestSite}${getLinkBlock('pl')}W razie pytań lub życzeń prosimy o kontakt.\n\nZ poważaniem,\n${sender}\nCasa Pura Vida 14`,
-    sk: `Vážený/á${greet?' '+greet:''},\n\nTešíme sa na privítanie vo Casa Pura Vida 14 dňa ${fmtDate(b.start)}!\n\nVšetky informácie o vašom pobyte nájdete na našej stránke pre hostí:\n${guestSite}${getLinkBlock('sk')}Ak máte otázky alebo priania, neváhajte nás kontaktovať.\n\nSrdečné pozdravy,\n${sender}\nCasa Pura Vida 14`,
-    sl: `Spoštovani${greet?' '+greet:''},\n\nVeselimo se, da vas pozdravimo v Casa Pura Vida 14 dne ${fmtDate(b.start)}!\n\nVse informacije o vašem bivanju najdete na naši strani za goste:\n${guestSite}${getLinkBlock('sl')}Če imate kakšna vprašanja ali posebne želje, nas prosim kontaktirajte.\n\nLep pozdrav,\n${sender}\nCasa Pura Vida 14`,
+    nl: `Beste${greet?' '+greet:''},\n\nWij verheugen ons erop u te mogen verwelkomen bij Casa Pura Vida 14 op ${fmtDate(b.start)}!\n\nOp onze gastenpagina vindt u alle informatie over uw verblijf:\n${guestSite}${getLinkBlock('nl')}${getCheckinBlock('nl')}Heeft u een specifiek aankomsttijdstip, een wens of een vraag? Neem gerust contact op.\n\nHartelijke groeten,\n${sender}\nCasa Pura Vida 14`,
+    en: `Dear${greet?' '+greet:''},\n\nWe are looking forward to welcoming you to Casa Pura Vida 14 on ${fmtDate(b.start)}!\n\nYou can find all information about your stay on our guest page:\n${guestSite}${getLinkBlock('en')}${getCheckinBlock('en')}If you have a specific arrival time, a request or a question, please don't hesitate to get in touch.\n\nKind regards,\n${sender}\nCasa Pura Vida 14`,
+    de: `Liebe${greet?' '+greet:''},\n\nWir freuen uns, Sie am ${fmtDate(b.start)} bei Casa Pura Vida 14 begrüßen zu dürfen!\n\nAlle Informationen zu Ihrem Aufenthalt finden Sie auf unserer Gastseite:\n${guestSite}${getLinkBlock('de')}${getCheckinBlock('de')}Bei Fragen oder besonderen Wünschen stehen wir Ihnen gerne zur Verfügung.\n\nHerzliche Grüße,\n${sender}\nCasa Pura Vida 14`,
+    fr: `Cher${greet?' '+greet:''},\n\nNous sommes ravis de vous accueillir à Casa Pura Vida 14 le ${fmtDate(b.start)} !\n\nRetrouvez toutes les informations sur votre séjour sur notre page dédiée aux voyageurs :\n${guestSite}${getLinkBlock('fr')}${getCheckinBlock('fr')}N'hésitez pas à nous contacter si vous avez des questions ou des souhaits particuliers.\n\nCordialement,\n${sender}\nCasa Pura Vida 14`,
+    es: `Estimado/a${greet?' '+greet:''},\n\n¡Nos complace darle la bienvenida a Casa Pura Vida 14 el ${fmtDate(b.start)}!\n\nEncuentre toda la información sobre su estancia en nuestra página para huéspedes:\n${guestSite}${getLinkBlock('es')}${getCheckinBlock('es')}Si tiene alguna pregunta o deseo especial, no dude en ponerse en contacto con nosotros.\n\nUn cordial saludo,\n${sender}\nCasa Pura Vida 14`,
+    sv: `Hej${greet?' '+greet:''},\n\nVi ser fram emot att välkomna er till Casa Pura Vida 14 den ${fmtDate(b.start)}!\n\nAll information om er vistelse hittar ni på vår gästsida:\n${guestSite}${getLinkBlock('sv')}${getCheckinBlock('sv')}Har ni önskemål om ankomsttid eller andra frågor? Hör gärna av er!\n\nHjärtliga hälsningar,\n${sender}\nCasa Pura Vida 14`,
+    no: `Hei${greet?' '+greet:''},\n\nVi gleder oss til å ønske dere velkommen til Casa Pura Vida 14 den ${fmtDate(b.start)}!\n\nAll informasjon om oppholdet finner dere på vår gjesteside:\n${guestSite}${getLinkBlock('no')}${getCheckinBlock('no')}Har dere spørsmål eller ønsker? Ta gjerne kontakt!\n\nMed vennlig hilsen,\n${sender}\nCasa Pura Vida 14`,
+    da: `Kære${greet?' '+greet:''},\n\nVi ser frem til at byde jer velkommen til Casa Pura Vida 14 den ${fmtDate(b.start)}!\n\nAl information om jeres ophold finder I på vores gæsteside:\n${guestSite}${getLinkBlock('da')}${getCheckinBlock('da')}Hvis I har spørgsmål eller ønsker, er I meget velkomne til at kontakte os.\n\nVenlig hilsen,\n${sender}\nCasa Pura Vida 14`,
+    it: `Gentile${greet?' '+greet:''},\n\nSiamo lieti di darvi il benvenuto a Casa Pura Vida 14 il ${fmtDate(b.start)}!\n\nTutte le informazioni sul vostro soggiorno le trovate sulla nostra pagina per gli ospiti:\n${guestSite}${getLinkBlock('it')}${getCheckinBlock('it')}Per qualsiasi domanda o richiesta, non esitate a contattarci.\n\nCordiali saluti,\n${sender}\nCasa Pura Vida 14`,
+    pl: `Drogi/a${greet?' '+greet:''},\n\nZ przyjemnością przywitamy Państwa w Casa Pura Vida 14 w dniu ${fmtDate(b.start)}!\n\nWszelkie informacje o pobycie znajdą Państwo na naszej stronie dla gości:\n${guestSite}${getLinkBlock('pl')}${getCheckinBlock('pl')}W razie pytań lub życzeń prosimy o kontakt.\n\nZ poważaniem,\n${sender}\nCasa Pura Vida 14`,
+    sk: `Vážený/á${greet?' '+greet:''},\n\nTešíme sa na privítanie vo Casa Pura Vida 14 dňa ${fmtDate(b.start)}!\n\nVšetky informácie o vašom pobyte nájdete na našej stránke pre hostí:\n${guestSite}${getLinkBlock('sk')}${getCheckinBlock('sk')}Ak máte otázky alebo priania, neváhajte nás kontaktovať.\n\nSrdečné pozdravy,\n${sender}\nCasa Pura Vida 14`,
+    sl: `Spoštovani${greet?' '+greet:''},\n\nVeselimo se, da vas pozdravimo v Casa Pura Vida 14 dne ${fmtDate(b.start)}!\n\nVse informacije o vašem bivanju najdete na naši strani za goste:\n${guestSite}${getLinkBlock('sl')}${getCheckinBlock('sl')}Če imate kakšna vprašanja ali posebne želje, nas prosim kontaktirajte.\n\nLep pozdrav,\n${sender}\nCasa Pura Vida 14`,
   };
   return drafts[lang]||drafts['en'];
 }
@@ -2027,6 +2052,7 @@ function showApp() {
   document.getElementById('auth-screen').style.display = 'none';
   document.getElementById('app-root').style.display = 'flex';
   document.getElementById('kh-email-input').value = settings.keyholderEmail;
+  document.getElementById('kh-phone-input').value = settings.keyholderPhone;
   document.getElementById('sender-name').value = settings.senderName;
   document.getElementById('gift-threshold').value = settings.giftThreshold;
   document.getElementById('days-before').value = settings.daysBefore;
