@@ -1231,7 +1231,7 @@ function openDraft(id, type) {
   const panel = document.getElementById('detail-panel');
   const overlay = document.getElementById('panel-overlay');
   document.getElementById('panel-guest').textContent = b.name + (type==='annulering'?' — Annulering':'');
-  document.getElementById('panel-dates').textContent = type==='keyholder'?`Keyholder: ${settings.keyholderEmail}`:type==='annulering'?`Annulering → ${settings.keyholderEmail}`:`Aankomst: ${fmtDateShort(b.start)}`;
+  document.getElementById('panel-dates').textContent = type==='keyholder'?`Keyholder: ${settings.keyholderEmail}`:type==='annulering'?`Annulering → ${settings.keyholderEmail}`:`Aankomst: ${fmtDateShort(b.start)} · Vertrek: ${fmtDateShort(b.end)}`;
   const currentCountry = editedCountry[id] !== undefined ? editedCountry[id] : b.country;
   const currentLangCode = editedCountry[id] !== undefined ? '' : b.langCode;
   const lang = getGuestLang(currentCountry, currentLangCode);
@@ -1492,10 +1492,9 @@ function buildKeyholderDraft(b, sender) {
   const country = b.country || 'onbekend';
   const checkin = fmtDate(b.start);
   const checkout = fmtDate(b.end);
-  const created = b.created ? fmtDate(b.created) : '—';
   const contactLine = b.email ? `\nContactgegevens gast:\nE-mail: ${b.email}${b.phone ? '\nTelefoon: '+b.phone : ''}` : (b.phone ? `\nTelefoon gast: ${b.phone}` : '');
   const lateLine = b.lateCheckin ? '\n⚠ LET OP: Late check-in na 20:00 uur!' : '';
-  return `Hoi Nick,\n\nHierbij informeren we je over de aankomende boeking bij Casa Pura Vida 14:\n\nNaam gast: ${b.name}\nAantal personen: ${persons}\nBoekingsherkomst: ${src}\nLand van herkomst: ${country}\nAankomstdatum: ${checkin} om ${b.checkinHour||'16:00'}\nVertrekdatum: ${checkout} om ${b.checkoutHour||'10:00'}\nDatum boeking: ${created}\nIncheck nodig: Ja\nUitcheck nodig: Ja\nWelkomstcadeau: ${gift} (${b.nights} nachten)${contactLine}${lateLine}\n\nMochten er vragen zijn, dan horen we het graag.\n\nGroeten,\n${sender}`;
+  return `Hoi Nick,\n\nHierbij informeren we je over de aankomende boeking bij Casa Pura Vida 14:\n\nNaam gast: ${b.name}\nAantal personen: ${persons}\nBoekingsherkomst: ${src}\nLand van herkomst: ${country}\nAankomstdatum: ${checkin} om ${b.checkinHour||'16:00'}\nVertrekdatum: ${checkout} om ${b.checkoutHour||'10:00'}\nIncheck nodig: Ja\nUitcheck nodig: Ja\nWelkomstcadeau: ${gift} (${b.nights} nachten)${contactLine}${lateLine}\n\nMochten er vragen zijn, dan horen we het graag.\n\nGroeten,\n${sender}`;
 }
 
 function buildCancellationDraft(b, sender) {
