@@ -971,13 +971,33 @@ function guestFormLink(id) {
   const gf = guestForms[id];
   return gf ? ENVS[ENV].formUrl + '?t=' + gf.token : '';
 }
+// Aankomsttijd uit het gastenformulier: 'HH:MM', 'unknown', of (oude formulieren) een tijdsblok
+const LEGACY_ARRIVAL = { '16-18':'tussen 16:00 en 18:00 uur', '18-20':'tussen 18:00 en 20:00 uur',
+                         '20-22':'tussen 20:00 en 22:00 uur', 'after-22':'na 22:00 uur' };
 function arrivalLabelNl(code) {
-  return ({'16-18':'tussen 16:00 en 18:00 uur','18-20':'tussen 18:00 en 20:00 uur',
-           '20-22':'tussen 20:00 en 22:00 uur','after-22':'na 22:00 uur',
-           'unknown':'nog niet bekend'})[code] || '—';
+  if (!code) return '—';
+  if (code === 'unknown') return 'nog niet bekend';
+  if (/^\d{2}:\d{2}$/.test(code)) return 'om ' + code + ' uur';
+  return LEGACY_ARRIVAL[code] || '—';
 }
-function isLateArrival(gf) {
-  return !!gf && (gf.arrival_time === '20-22' || gf.arrival_time === 'after-22');
+// Toeslag bij aankomst: 18:00–22:00 € 30, 22:00–07:00 € 50 (te voldoen aan de keyholder)
+function surchargeForTime(text) {
+  const m = String(text || '').match(/(\d{1,2})[:.](\d{2})/);
+  if (!m) return 0;
+  const min = (parseInt(m[1]) % 24) * 60 + parseInt(m[2]);
+  if (min >= 18*60 && min < 22*60) return 30;
+  if (min >= 22*60 || min < 7*60) return 50;
+  return 0;
+}
+function arrivalSurcharge(gf) {
+  if (!gf || !gf.arrival_time) return 0;
+  const legacy = { '18-20':30, '20-22':30, 'after-22':50 };
+  if (gf.arrival_time in legacy) return legacy[gf.arrival_time];
+  return surchargeForTime(gf.arrival_time);
+}
+function isLateArrival(gf) { return arrivalSurcharge(gf) > 0; }
+function flightOutLabel(gf) {
+  return gf && gf.flight_out ? gf.flight_out + (gf.flight_out_time ? ' (vertrek ' + gf.flight_out_time + ')' : '') : '';
 }
 function adoptGuestValue(id, field) {
   const gf = guestForms[id];
@@ -1296,13 +1316,13 @@ function renderWerkvoorraad(container) {
       const late = isLateArrival(gf);
       const bits = ['aankomst ' + arrivalLabelNl(gf.arrival_time)];
       if (gf.flight_in) bits.push('heenvlucht ' + gf.flight_in + (gf.flight_in_time ? ' (landing ' + gf.flight_in_time + ')' : ''));
-      if (gf.flight_out) bits.push('terugvlucht ' + gf.flight_out);
+      if (gf.flight_out) bits.push('terugvlucht ' + flightOutLabel(gf));
       if (gf.requests) bits.push('wens: ' + gf.requests);
       const when = gf.submitted_at ? new Date(gf.submitted_at).toLocaleString('nl-NL') : '';
       return `<div class="wl-item">
         <div class="wl-stripe" style="background:var(--amber)"></div>
         <div class="wl-body">
-          <div class="wl-title">${b.name} — gastenformulier ontvangen${late ? ' ⚠ late check-in' : ''}</div>
+          <div class="wl-title">${b.name} — gastenformulier ontvangen${late ? ' ⚠ toeslag € ' + arrivalSurcharge(gf) : ''}</div>
           <div class="wl-meta">aankomst ${fmtDateShort(b.start)} · ${bits.join(' · ')}${when ? ' — ingevuld op ' + when : ''}</div>
           <div class="wl-actions">
             <span class="tag" style="background:var(--amber-light);color:#7A5518">Formulier retour</span>
@@ -1762,12 +1782,14 @@ function khDefaults(b) {
 
   const flightIn = hasForm && gf.flight_in
     ? gf.flight_in + (gf.flight_in_time ? ' (landing ' + gf.flight_in_time + ')' : '') : '';
-  const flightOut = hasForm && gf.flight_out ? gf.flight_out : '';
+  const flightOut = hasForm ? flightOutLabel(gf) : '';
   const phone = (hasForm && gf.phone) ? gf.phone : (b.phone || '');
 
   const notes = [];
   notes.push(`Welkomstcadeau: ${b.welcomeGift ? 'ja' : 'nee'} (${b.nights} nachten)`);
-  if (b.lateCheckin || isLateArrival(gf)) notes.push('Let op: late check-in na 20:00 uur');
+  const toeslag = hasForm ? arrivalSurcharge(gf) : 0;
+  if (toeslag) notes.push(`Toeslag late aankomst: € ${toeslag}, te voldoen bij aankomst`);
+  else if (b.lateCheckin) notes.push('Let op: late check-in na 20:00 uur');
   if (hasForm && gf.requests) notes.push('Wens gast: ' + gf.requests);
   if (b.notes) notes.push('Notitie boeking: ' + b.notes);
 
@@ -1800,6 +1822,10 @@ function khValues(b) {
   return out;
 }
 
+function hasManualArrival(b) {
+  return !!(editedKH[b.id] && Object.prototype.hasOwnProperty.call(editedKH[b.id], 'verwachte_aankomsttijd'));
+}
+
 function buildKeyholderDraft(b, sender) {
   const v = khValues(b);
   const val = k => (v[k].v || '').trim();
@@ -1809,7 +1835,8 @@ function buildKeyholderDraft(b, sender) {
     .filter(Boolean).join(', ');
   const aankomst = val('verwachte_aankomsttijd') || 'nog niet bekend';
   const gf = guestForms[b.id];
-  const late = b.lateCheckin || isLateArrival(gf);
+  // Toeslag op basis van de (eventueel handmatig aangepaste) aankomsttijd
+  const toeslag = surchargeForTime(aankomst) || (hasManualArrival(b) ? 0 : arrivalSurcharge(gf));
   return `Hoi Nick,\n\n`
     + `In de bijlage vind je het ingevulde boekingsformulier voor een nieuwe boeking bij Casa Pura Vida 14.\n\n`
     + `Kort samengevat:\n`
@@ -1817,7 +1844,8 @@ function buildKeyholderDraft(b, sender) {
     + `Incheck: ${val('datum_incheck')}, verwachte aankomst ${aankomst}\n`
     + `Uitcheck: ${val('datum_uitcheck')}\n`
     + `Welkomstcadeau: ${b.welcomeGift ? 'ja' : 'nee'}\n`
-    + (late ? `\n⚠ Let op: late check-in na 20:00 uur.\n` : '')
+    + (toeslag ? `\n⚠ Let op: aankomst ${aankomst} — toeslag € ${toeslag}, te voldoen bij aankomst.\n`
+               : (b.lateCheckin ? `\n⚠ Let op: late check-in na 20:00 uur.\n` : ''))
     + `\nDe gasten nemen de dag vóór aankomst via WhatsApp contact met je op om het definitieve incheckmoment af te spreken.\n\n`
     + `Mochten er vragen zijn, dan horen we het graag.\n\n`
     + `Groeten,\n${sender}`;
@@ -1938,7 +1966,7 @@ function pdfSafe(text) {
   return String(text || '')
     .replace(/[‘’]/g, "'").replace(/[“”]/g, '"').replace(/[–—]/g, '-')
     .replace(/⚠\s*/g, '')
-    .split('').map(ch => ch.charCodeAt(0) <= 0xFF || ch === '\n'
+    .split('').map(ch => ch.charCodeAt(0) <= 0xFF || ch === '\n' || ch === '€'
       ? ch : ch.normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^\x00-\xFF]/g, '?')).join('');
 }
 
@@ -2194,10 +2222,10 @@ function buildGuestFormSection(b) {
   return `<div class="field-grid">
       <div class="field" style="grid-column:span 2">
         <div class="field-label">Gewenste aankomst</div>
-        <div class="field-val" style="${late?'color:var(--amber)':''}">${late?'⚠ ':''}${arrivalLabelNl(gf.arrival_time)}</div>
+        <div class="field-val" style="${late?'color:var(--amber)':''}">${late?'⚠ ':''}${arrivalLabelNl(gf.arrival_time)}${late?' — toeslag € '+arrivalSurcharge(gf)+', te voldoen bij aankomst':''}</div>
       </div>
       ${gf.flight_in?`<div class="field"><div class="field-label">Heenvlucht</div><div class="field-val">${gf.flight_in}${gf.flight_in_time?' · '+gf.flight_in_time:''}</div></div>`:''}
-      ${gf.flight_out?`<div class="field"><div class="field-label">Terugvlucht</div><div class="field-val">${gf.flight_out}</div></div>`:''}
+      ${gf.flight_out?`<div class="field"><div class="field-label">Terugvlucht</div><div class="field-val">${gf.flight_out}${gf.flight_out_time?' · vertrek '+gf.flight_out_time:''}</div></div>`:''}
       ${contactRow('E-mail volgens gast', gf.email, b.email, 'email')}
       ${contactRow('Telefoon volgens gast', gf.phone, b.phone, 'phone')}
       ${gf.requests?`<div class="field" style="grid-column:span 2"><div class="field-label">Wensen</div><div class="field-val" style="font-weight:400;font-size:12px;line-height:1.5">${gf.requests}</div></div>`:''}
